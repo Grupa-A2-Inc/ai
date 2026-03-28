@@ -1,0 +1,66 @@
+[
+  {
+    "question_id": 61,
+    "subject_id": 4,
+    "topic_id": 12,
+    "question_type": "single_choice",
+    "content": "Which planet is known as the Red Planet?",
+    "difficulty": 0.4,
+    "is_active": true,
+    "options": [
+      {
+        "option_id": 201,
+        "text": "Earth",
+        "display_order": 1
+      },
+      {
+        "option_id": 202,
+        "text": "Mars",
+        "display_order": 2
+      },
+      {
+        "option_id": 203,
+        "text": "Venus",
+        "display_order": 3
+      },
+      {
+        "option_id": 204,
+        "text": "Jupiter",
+        "display_order": 4
+      }
+    ],
+    "correct_option_ids": [202]
+  },
+  {
+    "question_id": 41,
+    "subject_id": 3,
+    "topic_id": 8,
+    "question_type": "multiple_choice",
+    "content": "Which of the following are programming languages?",
+    "difficulty": 0.5,
+    "is_active": true,
+    "options": [
+      {
+        "option_id": 101,
+        "text": "Python",
+        "display_order": 1
+      },
+      {
+        "option_id": 102,
+        "text": "HTML",
+        "display_order": 2
+      },
+      {
+        "option_id": 103,
+        "text": "Java",
+        "display_order": 3
+      },
+      {
+        "option_id": 104,
+        "text": "CSS",
+        "display_order": 4
+      }
+    ],
+    "correct_option_ids": [101, 103]
+  }
+]
