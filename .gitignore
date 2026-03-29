@@ -5,3 +5,4 @@ __pycache__/
 
 .idea/
 venv_activate.txt
+*_initial.py

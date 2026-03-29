@@ -2,7 +2,6 @@ from unittest.mock import patch
 from rest_framework.test import APITestCase
 from django.urls import reverse
 
-
 class RecommendQuestionViewTests(APITestCase):
     def test_recommend_question_success(self):
         url = reverse("recommend-question")

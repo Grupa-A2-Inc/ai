@@ -1,12 +1,6 @@
-from dataclasses import dataclass
-
-@dataclass
 class StudentContext:
-    user_id: int
-    subject_id: int | None = None
-    topic_id: int | None = None
-    profile: object | None = None
-    progress: object | None = None
-    recent_attempts: list | None = None
-    recent_answers: list | None = None
-    material_views: list | None = None
+    def __init__(self, history, recent_history, seen_question_ids, candidate_questions):
+        self.history = history
+        self.recent_history = recent_history
+        self.seen_question_ids = seen_question_ids
+        self.candidate_questions = candidate_questions
