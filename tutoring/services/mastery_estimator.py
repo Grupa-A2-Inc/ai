@@ -1,8 +1,11 @@
-class BaseMasteryEstimator:
-    def estimate(self, user_id, subject_id, topic_id, features):
-        raise NotImplementedError
+from tutoring.dto.mastery_result import MasteryResult
 
+class MasteryEstimator:
+    def estimate(self, features) -> MasteryResult:
+        normalized_time = min(features.avg_time / 60.0, 1.0)
 
-class RuleBasedMasteryEstimator(BaseMasteryEstimator):
-    def estimate(self, user_id, subject_id, topic_id, features):
-        pass
+        mastery = 0.7 * features.accuracy + 0.3 * (1 - normalized_time)
+
+        mastery = max(0.0, min(mastery, 1.0))
+
+        return MasteryResult(mastery_score=mastery)
