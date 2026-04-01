@@ -28,3 +28,10 @@ class FeatureEngineeringService:
             avg_time=avg_time,
             attempt_count=attempt_count,
         )
+
+    def normalize(self, raw_features)-> TopicFeatures:
+        return TopicFeatures(
+            accuracy=raw_features.accuracy,
+            avg_time=min(raw_features.avg_time / 60.0, 1.0),
+            attempt_count=raw_features.attempt_count,
+        )
