@@ -1,24 +1,73 @@
 from django.db import models
 
 
+class QuestionType(models.TextChoices):
+    SINGLE_CHOICE = "single_choice", "Single Choice"
+    MULTIPLE_CHOICE = "multiple_choice", "Multiple Choice"
+
+
 class Question(models.Model):
     subject_id = models.IntegerField()
     topic_id = models.IntegerField()
+
+    question_type = models.CharField(
+        max_length=20,
+        choices=QuestionType.choices
+    )
+
     content = models.TextField()
-    difficulty_initial = models.FloatField(default=0.5)
-    difficulty_observed = models.FloatField(default=0.5)
+    difficulty = models.FloatField(default=0.5)
+
+    is_active = models.BooleanField(default=True)
+
     times_answered = models.IntegerField(default=0)
     times_correct = models.IntegerField(default=0)
     avg_time_spent = models.FloatField(default=0.0)
-    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return f"Question {self.id} - topic {self.topic_id}"
 
 
+class QuestionOption(models.Model):
+    question = models.ForeignKey(
+        Question,
+        on_delete=models.CASCADE,
+        related_name="options"
+    )
+
+    text = models.TextField()
+    display_order = models.IntegerField(default=0)
+
+    def __str__(self):
+        return f"Option {self.id} for question {self.question_id}"
+
+
+class QuestionCorrectOption(models.Model):
+    question = models.ForeignKey(
+        Question,
+        on_delete=models.CASCADE,
+        related_name="correct_options"
+    )
+
+    option = models.ForeignKey(
+        QuestionOption,
+        on_delete=models.CASCADE,
+        related_name="correct_for_questions"
+    )
+
+    def __str__(self):
+        return f"Correct option {self.option_id} for question {self.question_id}"
+
+
 class StudentInteraction(models.Model):
     user_id = models.IntegerField()
-    question = models.ForeignKey(Question, on_delete=models.CASCADE)
+
+    question = models.ForeignKey(
+        Question,
+        on_delete=models.CASCADE,
+        related_name="interactions"
+    )
+
     is_correct = models.BooleanField()
     score = models.FloatField(default=0.0)
     time_spent = models.FloatField()
