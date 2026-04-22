@@ -2,6 +2,7 @@
 __pycache__/
 *.pyc
 .env
+.coverage
 
 .idea/
 venv_activate.txt
