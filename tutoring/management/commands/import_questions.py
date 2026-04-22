@@ -1,28 +1,3 @@
-# Acest Script va trebui sa populeze DB-ul dupa schema de JSON
-# Nu stiu exact cum functioneaza asa ca nu va pune nimeni nicio intrebare
-
-# Ce zice GPT
-'''
-8. Ce trebuie să existe înainte
-
-Trebuie să ai:
-
-modelele definite
-migrațiile făcute
-baza de date actualizată
-
-Adică:
-
-python manage.py makemigrations
-python manage.py migrate
-
-și abia după aia rulezi importul.
-
-Cum il rulez
-
-python manage.py import_questions questions_seed.json
-'''
-
 import json
 from pathlib import Path
 
@@ -38,47 +13,117 @@ from tutoring.models import (
 
 
 class Command(BaseCommand):
-    help = "Import questions from a JSON file into the database."
+    help = "Import questions from all JSON files in a folder into the database."
 
     def add_arguments(self, parser):
         parser.add_argument(
-            "json_path",
+            "folder_path",
             type=str,
-            help="Path to the JSON file containing questions."
+            help="Path to the folder containing JSON files with questions."
         )
 
     def handle(self, *args, **options):
-        json_path = Path(options["json_path"])
+        folder_path = Path(options["folder_path"])
 
-        if not json_path.exists():
-            raise CommandError(f"File does not exist: {json_path}")
+        if not folder_path.exists():
+            raise CommandError(f"Folder does not exist: {folder_path}")
 
+        if not folder_path.is_dir():
+            raise CommandError(f"Provided path is not a folder: {folder_path}")
+
+        json_files = sorted(folder_path.rglob("*.json"))
+
+        if not json_files:
+            raise CommandError(f"No JSON files found in folder: {folder_path}")
+
+        total_created = 0
+        total_updated = 0
+        successful_files = []
+        failed_files = []
+
+        for json_file in json_files:
+            self.stdout.write(f"Processing file: {json_file}")
+
+            try:
+                file_created, file_updated = self._process_file(json_file)
+                total_created += file_created
+                total_updated += file_updated
+
+                successful_files.append(
+                    {
+                        "file": str(json_file),
+                        "created": file_created,
+                        "updated": file_updated,
+                    }
+                )
+
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"Finished {json_file.name} -> Created: {file_created}, Updated: {file_updated}"
+                    )
+                )
+
+            except Exception as exc:
+                failed_files.append(
+                    {
+                        "file": str(json_file),
+                        "error": str(exc),
+                    }
+                )
+
+                self.stdout.write(
+                    self.style.ERROR(
+                        f"Failed {json_file.name} -> {exc}"
+                    )
+                )
+
+        self.stdout.write("")
+        self.stdout.write(self.style.SUCCESS("IMPORT SUMMARY"))
+        self.stdout.write(f"Successful files: {len(successful_files)}")
+        self.stdout.write(f"Failed files: {len(failed_files)}")
+        self.stdout.write(f"Total created: {total_created}")
+        self.stdout.write(f"Total updated: {total_updated}")
+
+        if successful_files:
+            self.stdout.write("")
+            self.stdout.write(self.style.SUCCESS("Successful files details:"))
+            for file_info in successful_files:
+                self.stdout.write(
+                    f"- {file_info['file']} -> Created: {file_info['created']}, Updated: {file_info['updated']}"
+                )
+
+        if failed_files:
+            self.stdout.write("")
+            self.stdout.write(self.style.WARNING("Failed files details:"))
+            for file_info in failed_files:
+                self.stdout.write(
+                    f"- {file_info['file']} -> Error: {file_info['error']}"
+                )
+
+    def _process_file(self, json_file: Path) -> tuple[int, int]:
         try:
-            with json_path.open("r", encoding="utf-8") as file:
+            with json_file.open("r", encoding="utf-8") as file:
                 payload = json.load(file)
         except json.JSONDecodeError as exc:
-            raise CommandError(f"Invalid JSON file: {exc}") from exc
+            raise CommandError(f"Invalid JSON in file {json_file.name}: {exc}") from exc
 
         if not isinstance(payload, list):
-            raise CommandError("JSON root must be a list of question objects.")
+            raise CommandError(
+                f"JSON root must be a list of question objects in file {json_file.name}."
+            )
 
-        imported_count = 0
-        updated_count = 0
+        file_created = 0
+        file_updated = 0
 
         for question_data in payload:
             with transaction.atomic():
                 was_created = self._import_question(question_data)
                 if was_created:
-                    imported_count += 1
+                    file_created += 1
                 else:
-                    updated_count += 1
+                    file_updated += 1
 
-        self.stdout.write(
-            self.style.SUCCESS(
-                f"Import finished successfully. "
-                f"Created: {imported_count}, Updated: {updated_count}"
-            )
-        )
+        return file_created, file_updated
 
     def _import_question(self, question_data: dict) -> bool:
         self._validate_question_payload(question_data)
@@ -111,7 +156,6 @@ class Command(BaseCommand):
         options_data = question_data["options"]
         correct_option_ids = set(question_data["correct_option_ids"])
 
-        # ștergem întâi răspunsurile corecte vechi, apoi opțiunile vechi
         QuestionCorrectOption.objects.filter(question=question).delete()
         QuestionOption.objects.filter(question=question).delete()
 
@@ -129,8 +173,7 @@ class Command(BaseCommand):
         for option_id in correct_option_ids:
             if option_id not in created_options_by_id:
                 raise CommandError(
-                    f"Question {question.id}: correct option id {option_id} "
-                    f"does not exist in options."
+                    f"Question {question.id}: correct option id {option_id} does not exist in options."
                 )
 
             QuestionCorrectOption.objects.create(
@@ -182,6 +225,7 @@ class Command(BaseCommand):
             )
 
         option_ids = set()
+
         for option in options:
             for option_field in ["option_id", "text", "display_order"]:
                 if option_field not in option:
@@ -190,10 +234,12 @@ class Command(BaseCommand):
                     )
 
             option_id = option["option_id"]
+
             if option_id in option_ids:
                 raise CommandError(
                     f"Duplicate option_id {option_id} in question {question_data['question_id']}."
                 )
+
             option_ids.add(option_id)
 
         for correct_option_id in correct_option_ids:
