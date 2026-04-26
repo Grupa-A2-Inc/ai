@@ -9,3 +9,7 @@ class RecommendationResponseSerializer(serializers.Serializer):
     question_id = serializers.IntegerField()
     difficulty = serializers.FloatField()
     source = serializers.CharField()
+
+class StudentSyncRequestSerializer(serializers.Serializer):
+    requestId = serializers.CharField()
+    studentId = serializers.IntegerField(min_value=1)
