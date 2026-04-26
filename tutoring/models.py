@@ -75,3 +75,18 @@ class StudentInteraction(models.Model):
 
     def __str__(self):
         return f"Interaction user={self.user_id}, question={self.question_id}"
+
+
+class StudentProfile(models.Model):
+    student_id = models.IntegerField(unique=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+class StudentTopicLevel(models.Model):
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE)
+    subject_id = models.IntegerField()
+    topic_id = models.IntegerField()
+    mastery_score = models.FloatField(default=0.5)
+
+    class Meta:
+        unique_together = ("student","subject_id", "topic_id")
