@@ -12,7 +12,7 @@ from tutoring.models import (
 )
 
 
-@override_settings(AI_API_KEY="test-secret")
+@override_settings(EXTERNAL_API_KEY="test-secret")
 class AdaptiveExercisesEndpointTests(APITestCase):
     def setUp(self):
         self.student = StudentProfile.objects.create(
@@ -172,4 +172,4 @@ class AdaptiveExercisesEndpointTests(APITestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.status_code, 403)

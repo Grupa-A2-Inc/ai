@@ -2,7 +2,6 @@ import pytest
 from tutoring.models import StudentProfile, StudentTopicLevel, Question, QuestionType
 from tutoring.services.student_sync_service import StudentSyncService
 
-# Mark all tests in this module to use the database
 pytestmark = pytest.mark.django_db
 
 
@@ -30,7 +29,6 @@ class TestStudentSyncService:
 
         assert created is True
         assert StudentProfile.objects.filter(student_id=12).exists()
-        # Verificăm dacă s-au creat cele 2 niveluri de topic
         assert StudentTopicLevel.objects.filter(student=student).count() == 2
 
     def test_sync_existing_student_is_idempotent(self):

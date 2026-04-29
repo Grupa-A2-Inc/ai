@@ -1,4 +1,7 @@
+from datetime import timedelta
+
 from django.test import TestCase
+from django.utils import timezone
 
 from tutoring.models import Question, QuestionType, StudentInteraction
 from tutoring.repositories.student_data_repository import StudentDataRepository
@@ -45,7 +48,9 @@ class StudentDataRepositoryTests(TestCase):
         )
 
         # User 12 answered question_easy twice and question_medium once
-        StudentInteraction.objects.create(
+        now = timezone.now()
+
+        self.first_interaction = StudentInteraction.objects.create(
             user_id=12,
             question=self.question_easy,
             is_correct=True,
@@ -53,7 +58,7 @@ class StudentDataRepositoryTests(TestCase):
             time_spent=30.0,
         )
 
-        StudentInteraction.objects.create(
+        self.second_interaction = StudentInteraction.objects.create(
             user_id=12,
             question=self.question_easy,
             is_correct=False,
@@ -61,13 +66,27 @@ class StudentDataRepositoryTests(TestCase):
             time_spent=45.0,
         )
 
-        StudentInteraction.objects.create(
+        self.third_interaction = StudentInteraction.objects.create(
             user_id=12,
             question=self.question_medium,
             is_correct=True,
             score=1.0,
             time_spent=20.0,
         )
+
+        StudentInteraction.objects.filter(id=self.first_interaction.id).update(
+            created_at=now - timedelta(minutes=3)
+        )
+        StudentInteraction.objects.filter(id=self.second_interaction.id).update(
+            created_at=now - timedelta(minutes=2)
+        )
+        StudentInteraction.objects.filter(id=self.third_interaction.id).update(
+            created_at=now - timedelta(minutes=1)
+        )
+
+        self.first_interaction.refresh_from_db()
+        self.second_interaction.refresh_from_db()
+        self.third_interaction.refresh_from_db()
 
     def test_get_student_history_returns_correct_interactions(self):
         student_history = self.repository.get_student_history(
@@ -89,6 +108,22 @@ class StudentDataRepositoryTests(TestCase):
         self.assertIn(self.question_easy.id, seen_question_ids)
         self.assertIn(self.question_medium.id, seen_question_ids)
         self.assertNotIn(self.question_hard.id, seen_question_ids)
+
+    def test_get_recent_student_history_returns_latest_first(self):
+        recent_history = list(
+            self.repository.get_recent_student_history(
+                user_id=12,
+                subject_id=3,
+                topic_id=8,
+                limit=2,
+            )
+        )
+
+        self.assertEqual(len(recent_history), 2)
+        self.assertEqual(
+            [interaction.id for interaction in recent_history],
+            [self.third_interaction.id, self.second_interaction.id],
+        )
 
     def test_get_candidate_questions_returns_only_active_questions(self):
         candidate_questions = self.repository.get_candidate_questions(
@@ -133,5 +168,10 @@ class StudentDataRepositoryTests(TestCase):
         )
 
         self.assertEqual(student_context.history.count(), 3)
+        self.assertEqual(student_context.recent_history.count(), 3)
+        self.assertEqual(
+            list(student_context.recent_history.values_list("id", flat=True)),
+            [self.third_interaction.id, self.second_interaction.id, self.first_interaction.id],
+        )
         self.assertEqual(len(student_context.seen_question_ids), 2)
         self.assertGreater(student_context.candidate_questions.count(), 0)

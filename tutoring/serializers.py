@@ -43,7 +43,7 @@ class RecommendationResponseSerializer(serializers.Serializer):
 
 class StudentSyncRequestSerializer(serializers.Serializer):
     requestId = serializers.CharField()
-    studentId = serializers.IntegerField(min_value=1)
+    studentId = serializers.CharField()
 
 class AdaptiveFeedbackResultSerializer(serializers.Serializer):
     mlExerciseId = serializers.CharField()
@@ -52,7 +52,7 @@ class AdaptiveFeedbackResultSerializer(serializers.Serializer):
 
 
 class AdaptiveFeedbackRequestSerializer(serializers.Serializer):
-    studentId = serializers.IntegerField(min_value=1)
+    studentId = serializers.CharField()
     subjectId = serializers.IntegerField(min_value=1)
     topicId = serializers.IntegerField(min_value=1)
     results = AdaptiveFeedbackResultSerializer(many=True)

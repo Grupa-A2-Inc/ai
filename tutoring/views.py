@@ -10,7 +10,7 @@ from tutoring.services.recommendation_engine import QuestionRecommendationEngine
 from tutoring.serializers import AdaptiveFeedbackRequestSerializer
 from tutoring.services.feedback_service import (
     FeedbackService,
-    StudentNotFoundError,
+    StudentNotFoundError as FeedbackStudentNotFoundError,
     QuestionNotFoundError,
 )
 from tutoring.services.student_sync_service import StudentSyncService
@@ -23,7 +23,7 @@ from tutoring.serializers import (
 from tutoring.security.api_key_permission import HasValidApiKey
 from tutoring.services.adaptive_exercise_service import (
     AdaptiveExerciseService,
-    StudentNotFoundError,
+    StudentNotFoundError as AdaptiveExerciseStudentNotFoundError,
 )
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ class AdaptiveExercisesView(APIView):
                 count=count,
             )
 
-        except StudentNotFoundError:
+        except AdaptiveExerciseStudentNotFoundError:
             return Response(
                 {
                     "error": "Studentul nu există în modulul AI. Sincronizați studentul înainte."
@@ -164,7 +164,7 @@ class AdaptiveFeedbackView(APIView):
                 results=serializer.validated_data["results"],
             )
 
-        except StudentNotFoundError:
+        except FeedbackStudentNotFoundError:
             return Response({"ack": False}, status=status.HTTP_404_NOT_FOUND)
 
         except QuestionNotFoundError:

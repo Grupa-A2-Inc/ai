@@ -80,7 +80,7 @@ class QuestionCorrectOption(models.Model):
 
 
 class StudentInteraction(models.Model):
-    user_id = models.IntegerField()
+    user_id = models.CharField(max_length=100)
 
     ml_exercise_id = models.CharField(
         max_length=100,
@@ -104,7 +104,7 @@ class StudentInteraction(models.Model):
 
 
 class StudentProfile(models.Model):
-    student_id = models.IntegerField(unique=True)
+    student_id = models.CharField(max_length=100, unique=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
