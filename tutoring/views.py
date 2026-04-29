@@ -16,7 +16,69 @@ from tutoring.services.feedback_service import (
 from tutoring.services.student_sync_service import StudentSyncService
 from tutoring.serializers import StudentSyncRequestSerializer
 
+from tutoring.serializers import (
+    AdaptiveExercisesRequestSerializer,
+    AdaptiveExercisesResponseSerializer,
+)
+from tutoring.security.api_key_permission import HasValidApiKey
+from tutoring.services.adaptive_exercise_service import (
+    AdaptiveExerciseService,
+    StudentNotFoundError,
+)
+
 logger = logging.getLogger(__name__)
+
+class AdaptiveExercisesView(APIView):
+    permission_classes = [HasValidApiKey]
+
+    def post(self, request):
+        serializer = AdaptiveExercisesRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        student_id = serializer.validated_data["studentId"]
+        subject_id = serializer.validated_data["subjectId"]
+        topic_id = serializer.validated_data["topicId"]
+        count = serializer.validated_data["count"]
+
+        service = AdaptiveExerciseService()
+
+        try:
+            exercises = service.generate_exercises(
+                student_id=student_id,
+                subject_id=subject_id,
+                topic_id=topic_id,
+                count=count,
+            )
+
+        except StudentNotFoundError:
+            return Response(
+                {
+                    "error": "Studentul nu există în modulul AI. Sincronizați studentul înainte."
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        except Exception:
+            return Response(
+                {
+                    "error": "Serviciul de exerciții adaptive nu este disponibil"
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        response_payload = {
+            "exercises": exercises,
+        }
+
+        response_serializer = AdaptiveExercisesResponseSerializer(
+            data=response_payload
+        )
+        response_serializer.is_valid(raise_exception=True)
+
+        return Response(
+            response_serializer.validated_data,
+            status=status.HTTP_200_OK,
+        )
 
 class RecommendQuestionView(APIView):
     def post(self, request):
