@@ -15,7 +15,7 @@ from tutoring.models import (
 class AdaptiveFeedbackEndpointTests(APITestCase):
     def setUp(self):
         self.student = StudentProfile.objects.create(
-            student_id=1,
+            student_id="student-uuid-1",
             is_active=True,
         )
 
@@ -60,7 +60,7 @@ class AdaptiveFeedbackEndpointTests(APITestCase):
         response = self.client.post(
             reverse("adaptive-feedback"),
             {
-                "studentId": 1,
+                "studentId": "student-uuid-1",
                 "subjectId": 2,
                 "topicId": 1102,
                 "results": [
@@ -80,7 +80,7 @@ class AdaptiveFeedbackEndpointTests(APITestCase):
 
         interaction_one = StudentInteraction.objects.get(ml_exercise_id="1")
 
-        self.assertEqual(interaction_one.user_id, 1)
+        self.assertEqual(interaction_one.user_id, "student-uuid-1")
         self.assertEqual(interaction_one.question, self.question_one)
         self.assertEqual(interaction_one.score, 1)
         self.assertEqual(interaction_one.time_spent, 45)
@@ -90,7 +90,7 @@ class AdaptiveFeedbackEndpointTests(APITestCase):
         response = self.client.post(
             reverse("adaptive-feedback"),
             {
-                "studentId": 1,
+                "studentId": "student-uuid-1",
                 "subjectId": 2,
                 "topicId": 1102,
                 "results": [
@@ -114,7 +114,7 @@ class AdaptiveFeedbackEndpointTests(APITestCase):
         response = self.client.post(
             reverse("adaptive-feedback"),
             {
-                "studentId": 1,
+                "studentId": "student-uuid-1",
                 "subjectId": 2,
                 "topicId": 1102,
                 "results": [
@@ -136,7 +136,7 @@ class AdaptiveFeedbackEndpointTests(APITestCase):
         response = self.client.post(
             reverse("adaptive-feedback"),
             {
-                "studentId": 1,
+                "studentId": "student-uuid-1",
                 "subjectId": 2,
                 "topicId": 1102,
                 "results": [
@@ -158,7 +158,7 @@ class AdaptiveFeedbackEndpointTests(APITestCase):
         response = self.client.post(
             reverse("adaptive-feedback"),
             {
-                "studentId": 999,
+                "studentId": "missing-student",
                 "subjectId": 2,
                 "topicId": 1102,
                 "results": [
@@ -176,7 +176,7 @@ class AdaptiveFeedbackEndpointTests(APITestCase):
         response = self.client.post(
             reverse("adaptive-feedback"),
             {
-                "studentId": 1,
+                "studentId": "student-uuid-1",
                 "subjectId": 2,
                 "topicId": 1102,
                 "results": [
@@ -198,7 +198,7 @@ class AdaptiveFeedbackEndpointTests(APITestCase):
         response = self.client.post(
             reverse("adaptive-feedback"),
             {
-                "studentId": 1,
+                "studentId": "student-uuid-1",
                 "subjectId": 2,
                 "topicId": 1102,
                 "results": [
@@ -215,7 +215,7 @@ class AdaptiveFeedbackEndpointTests(APITestCase):
         response = self.client.post(
             reverse("adaptive-feedback"),
             {
-                "studentId": 1,
+                "studentId": "student-uuid-1",
                 "subjectId": 2,
                 "topicId": 1102,
                 "results": [],
@@ -230,7 +230,7 @@ class AdaptiveFeedbackEndpointTests(APITestCase):
         response = self.client.post(
             reverse("adaptive-feedback"),
             {
-                "studentId": 1,
+                "studentId": "student-uuid-1",
                 "subjectId": 2,
                 "topicId": 1102,
                 "results": [
