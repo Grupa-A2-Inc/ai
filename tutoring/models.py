@@ -9,6 +9,12 @@ class QuestionType(models.TextChoices):
 class Question(models.Model):
     subject_id = models.IntegerField()
     topic_id = models.IntegerField()
+    ml_exercise_id = models.CharField(
+        max_length=100,
+        unique=True,
+        null=True,
+        blank=True,
+    )
 
     question_type = models.CharField(
         max_length=20,
@@ -23,6 +29,13 @@ class Question(models.Model):
     times_answered = models.IntegerField(default=0)
     times_correct = models.IntegerField(default=0)
     avg_time_spent = models.FloatField(default=0.0)
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
+        if not self.ml_exercise_id:
+            self.ml_exercise_id = str(self.id)
+            super().save(update_fields=["ml_exercise_id"])
 
     def __str__(self):
         return f"Question {self.id} - topic {self.topic_id}"
@@ -61,6 +74,12 @@ class QuestionCorrectOption(models.Model):
 
 class StudentInteraction(models.Model):
     user_id = models.IntegerField()
+
+    ml_exercise_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+    )
 
     question = models.ForeignKey(
         Question,

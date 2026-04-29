@@ -7,7 +7,12 @@ from rest_framework.exceptions import PermissionDenied
 
 from tutoring.serializers import RecommendationRequestSerializer
 from tutoring.services.recommendation_engine import QuestionRecommendationEngine
-
+from tutoring.serializers import AdaptiveFeedbackRequestSerializer
+from tutoring.services.feedback_service import (
+    FeedbackService,
+    StudentNotFoundError,
+    QuestionNotFoundError,
+)
 from tutoring.services.student_sync_service import StudentSyncService
 from tutoring.serializers import StudentSyncRequestSerializer
 
@@ -77,3 +82,37 @@ class StudentSyncView(APIView):
                 "message": message
             },
         )
+
+class AdaptiveFeedbackView(APIView):
+    def post(self, request):
+        api_key = request.headers.get("X-API-Key")
+        if api_key != settings.EXTERNAL_API_KEY:
+            raise PermissionDenied("Invalid API key")
+
+        serializer = AdaptiveFeedbackRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        service = FeedbackService()
+
+        try:
+            service.record_feedback(
+                student_id=serializer.validated_data["studentId"],
+                subject_id=serializer.validated_data["subjectId"],
+                topic_id=serializer.validated_data["topicId"],
+                results=serializer.validated_data["results"],
+            )
+
+        except StudentNotFoundError:
+            return Response({"ack": False}, status=status.HTTP_404_NOT_FOUND)
+
+        except QuestionNotFoundError:
+            return Response({"ack": False}, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception:
+            logger.exception("Unexpected error while recording adaptive feedback")
+            return Response(
+                {"ack": False},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response({"ack": True}, status=status.HTTP_200_OK)
