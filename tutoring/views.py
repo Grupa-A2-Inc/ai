@@ -32,6 +32,11 @@ class AdaptiveExercisesView(APIView):
     permission_classes = [HasValidApiKey]
 
     def post(self, request):
+
+        api_key = request.headers.get("X-API-Key")
+        if api_key != settings.EXTERNAL_API_KEY:
+            raise PermissionDenied("Invalid API key")
+
         serializer = AdaptiveExercisesRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
