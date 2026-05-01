@@ -27,6 +27,7 @@ from tutoring.services.adaptive_exercise_service import (
 )
 
 logger = logging.getLogger(__name__)
+INVALID_API_KEY_MESSAGE = "Invalid API key"
 
 class AdaptiveExercisesView(APIView):
     permission_classes = [HasValidApiKey]
@@ -35,7 +36,7 @@ class AdaptiveExercisesView(APIView):
 
         api_key = request.headers.get("X-API-Key")
         if api_key != settings.EXTERNAL_API_KEY:
-            raise PermissionDenied("Invalid API key")
+            raise PermissionDenied(INVALID_API_KEY_MESSAGE)
 
         serializer = AdaptiveExercisesRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -127,16 +128,16 @@ class StudentSyncView(APIView):
 
         api_key = request.headers.get("X-API-Key")
         if api_key != settings.EXTERNAL_API_KEY:
-            raise PermissionDenied("Invalid API key")
+            raise PermissionDenied(INVALID_API_KEY_MESSAGE)
 
         serializer = StudentSyncRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        requestId = serializer.validated_data["requestId"]
-        studentId = serializer.validated_data["studentId"]
+        request_id = serializer.validated_data["requestId"]
+        student_id = serializer.validated_data["studentId"]
 
         service = StudentSyncService()
-        student, created = service.sync_student(student_id = studentId)
+        _, created = service.sync_student(student_id=student_id)
 
         message = ("Student registered in AI module with default topic levels."
             if created else
@@ -144,7 +145,7 @@ class StudentSyncView(APIView):
         
         return Response(
             {
-                "requestId": requestId,
+                "requestId": request_id,
                 "status": "ok",
                 "message": message
             },
@@ -154,7 +155,7 @@ class AdaptiveFeedbackView(APIView):
     def post(self, request):
         api_key = request.headers.get("X-API-Key")
         if api_key != settings.EXTERNAL_API_KEY:
-            raise PermissionDenied("Invalid API key")
+            raise PermissionDenied(INVALID_API_KEY_MESSAGE)
 
         serializer = AdaptiveFeedbackRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

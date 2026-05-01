@@ -16,13 +16,6 @@ class Question(models.Model):
         blank=True,
     )
 
-    ml_exercise_id = models.CharField(
-        max_length=100,
-        unique=True,
-        null=True,
-        blank=True,
-    )
-
     question_type = models.CharField(
         max_length=20,
         choices=QuestionType.choices,
@@ -84,7 +77,6 @@ class StudentInteraction(models.Model):
 
     ml_exercise_id = models.CharField(
         max_length=100,
-        null=True,
         blank=True,
     )
 

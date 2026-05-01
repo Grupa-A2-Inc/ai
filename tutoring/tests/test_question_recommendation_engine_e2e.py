@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from unittest import TestCase
 
 from tutoring.services.recommendation_engine import QuestionRecommendationEngine
 
@@ -44,7 +45,7 @@ class FakeRepository:
         return self.student_context
 
 
-class TestQuestionRecommendationEngineE2E:
+class QuestionRecommendationEngineE2ETests(TestCase):
     def test_end_to_end_returns_expected_recommendation(self):
         """
         Flow testat:
@@ -117,12 +118,12 @@ class TestQuestionRecommendationEngineE2E:
             topic_id=8,
         )
 
-        assert result is not None
-        assert result.question_id == 3
-        assert result.subject_id == 3
-        assert result.topic_id == 8
-        assert result.difficulty == 0.8
-        assert result.source == "selection"
+        self.assertIsNotNone(result)
+        self.assertEqual(result.question_id, 3)
+        self.assertEqual(result.subject_id, 3)
+        self.assertEqual(result.topic_id, 8)
+        self.assertEqual(result.difficulty, 0.8)
+        self.assertEqual(result.source, "selection")
 
     def test_end_to_end_returns_none_when_all_questions_are_seen(self):
         """
@@ -160,7 +161,7 @@ class TestQuestionRecommendationEngineE2E:
             topic_id=12,
         )
 
-        assert result is None
+        self.assertIsNone(result)
 
     def test_end_to_end_returns_none_when_candidate_list_is_empty(self):
         """
@@ -195,7 +196,7 @@ class TestQuestionRecommendationEngineE2E:
             topic_id=5,
         )
 
-        assert result is None
+        self.assertIsNone(result)
 
     def test_end_to_end_handles_new_student_with_no_history(self):
         """
@@ -252,12 +253,12 @@ class TestQuestionRecommendationEngineE2E:
             topic_id=3,
         )
 
-        assert result is not None
-        assert result.question_id == 22
-        assert result.subject_id == 1
-        assert result.topic_id == 3
-        assert result.difficulty == 0.6
-        assert result.source == "selection"
+        self.assertIsNotNone(result)
+        self.assertEqual(result.question_id, 22)
+        self.assertEqual(result.subject_id, 1)
+        self.assertEqual(result.topic_id, 3)
+        self.assertEqual(result.difficulty, 0.6)
+        self.assertEqual(result.source, "selection")
 
     def test_end_to_end_skips_best_seen_question_and_selects_next_best(self):
         """
@@ -326,9 +327,9 @@ class TestQuestionRecommendationEngineE2E:
             topic_id=2,
         )
 
-        assert result is not None
-        assert result.question_id == 32
-        assert result.subject_id == 7
-        assert result.topic_id == 2
-        assert result.difficulty == 0.8
-        assert result.source == "selection"
+        self.assertIsNotNone(result)
+        self.assertEqual(result.question_id, 32)
+        self.assertEqual(result.subject_id, 7)
+        self.assertEqual(result.topic_id, 2)
+        self.assertEqual(result.difficulty, 0.8)
+        self.assertEqual(result.source, "selection")
