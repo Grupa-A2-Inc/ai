@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from unittest import TestCase
 
 from tutoring.services.question_selection_engine import QuestionSelectionEngine
 
@@ -9,8 +10,8 @@ class DummyQuestion:
     difficulty: float
 
 
-class TestQuestionSelectionEngine:
-    def setup_method(self):
+class QuestionSelectionEngineTests(TestCase):
+    def setUp(self):
         self.engine = QuestionSelectionEngine()
 
     def test_returns_closest_question_to_target(self):
@@ -26,9 +27,9 @@ class TestQuestionSelectionEngine:
             seen_question_ids=[],
         )
 
-        assert selected_question is not None
-        assert selected_question.id == 2
-        assert selected_question.difficulty == 0.5
+        self.assertIsNotNone(selected_question)
+        self.assertEqual(selected_question.id, 2)
+        self.assertEqual(selected_question.difficulty, 0.5)
 
     def test_prefers_harder_question_on_tie(self):
         candidate_questions = [
@@ -42,9 +43,9 @@ class TestQuestionSelectionEngine:
             seen_question_ids=[],
         )
 
-        assert selected_question is not None
-        assert selected_question.id == 2
-        assert selected_question.difficulty == 0.6
+        self.assertIsNotNone(selected_question)
+        self.assertEqual(selected_question.id, 2)
+        self.assertEqual(selected_question.difficulty, 0.6)
 
     def test_skips_seen_question_and_selects_next_best(self):
         candidate_questions = [
@@ -59,9 +60,9 @@ class TestQuestionSelectionEngine:
             seen_question_ids=[1],
         )
 
-        assert selected_question is not None
-        assert selected_question.id == 2
-        assert selected_question.difficulty == 0.6
+        self.assertIsNotNone(selected_question)
+        self.assertEqual(selected_question.id, 2)
+        self.assertEqual(selected_question.difficulty, 0.6)
 
     def test_returns_none_when_all_questions_are_seen(self):
         candidate_questions = [
@@ -75,7 +76,7 @@ class TestQuestionSelectionEngine:
             seen_question_ids=[1, 2],
         )
 
-        assert selected_question is None
+        self.assertIsNone(selected_question)
 
     def test_returns_none_when_candidate_list_is_empty(self):
         selected_question = self.engine.select(
@@ -84,7 +85,7 @@ class TestQuestionSelectionEngine:
             seen_question_ids=[],
         )
 
-        assert selected_question is None
+        self.assertIsNone(selected_question)
 
     def test_works_when_seen_question_ids_is_none(self):
         candidate_questions = [
@@ -98,5 +99,5 @@ class TestQuestionSelectionEngine:
             seen_question_ids=None,
         )
 
-        assert selected_question is not None
-        assert selected_question.id == 1
+        self.assertIsNotNone(selected_question)
+        self.assertEqual(selected_question.id, 1)

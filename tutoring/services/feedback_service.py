@@ -1,4 +1,5 @@
 from django.db import transaction
+import math
 
 from tutoring.models import (
     StudentProfile,
@@ -114,7 +115,7 @@ class FeedbackService:
         return sum(float(result["score"]) for result in results) / len(results)
 
     def _is_correct(self, score: float) -> bool:
-        return score == 1.0
+        return math.isclose(score,1.0)
 
     def _clamp(self, value: float) -> float:
         return max(0.0, min(value, 1.0))
