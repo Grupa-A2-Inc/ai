@@ -35,6 +35,7 @@ class AdaptiveExerciseService:
                 user_id=student_id,
                 subject_id=subject_id,
                 topic_id=topic_id,
+                excluded_question_ids=generated_question_ids,
             )
 
             if recommendation is None:
