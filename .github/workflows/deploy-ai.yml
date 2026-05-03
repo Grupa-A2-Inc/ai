@@ -62,13 +62,13 @@ jobs:
 
       - name: Wait for rollout
         run: |
-          kubectl rollout status deployment/ai-service -n elearning --timeout=180s
+          kubectl rollout status deployment/ai-service -n elearning --timeout=600s
 
       - name: Rollback if deployment failed
         if: failure()
         run: |
           kubectl rollout undo deployment/ai-service -n elearning || true
-          kubectl rollout status deployment/ai-service -n elearning --timeout=180s || true
+          kubectl rollout status deployment/ai-service -n elearning --timeout=600s || true
 
       - name: Clean Docker config
         if: always()
