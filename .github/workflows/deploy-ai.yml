@@ -1,0 +1,76 @@
+name: Deploy AI Service to K3s
+
+on:
+  push:
+    branches:
+      - deploy
+  workflow_dispatch:
+
+concurrency:
+  group: ai-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, elearn-ai-runner]
+
+    env:
+      KUBECONFIG: /home/lyo/.kube/config
+      DOCKER_CONFIG_DIR: /tmp/docker-config-ai-${{ github.run_id }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare Docker auth manually
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          rm -rf "$DOCKER_CONFIG_DIR"
+          mkdir -p "$DOCKER_CONFIG_DIR"
+
+          AUTH="$(printf "%s:%s" "$DOCKER_USERNAME" "$DOCKER_PASSWORD" | base64 -w 0)"
+
+          cat > "$DOCKER_CONFIG_DIR/config.json" <<EOF
+          {
+            "auths": {
+              "https://index.docker.io/v1/": {
+                "auth": "$AUTH"
+              }
+            }
+          }
+          EOF
+
+      - name: Build Docker image
+        run: |
+          docker --config "$DOCKER_CONFIG_DIR" build \
+            -t lyochris/elearning-ai:${{ github.sha }} \
+            -t lyochris/elearning-ai:latest \
+            .
+
+      - name: Push Docker image
+        run: |
+          docker --config "$DOCKER_CONFIG_DIR" push lyochris/elearning-ai:${{ github.sha }}
+          docker --config "$DOCKER_CONFIG_DIR" push lyochris/elearning-ai:latest
+
+      - name: Deploy new image to Kubernetes
+        run: |
+          kubectl set image deployment/ai-service \
+            ai-service=lyochris/elearning-ai:${{ github.sha }} \
+            -n elearning
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/ai-service -n elearning --timeout=180s
+
+      - name: Rollback if deployment failed
+        if: failure()
+        run: |
+          kubectl rollout undo deployment/ai-service -n elearning || true
+          kubectl rollout status deployment/ai-service -n elearning --timeout=180s || true
+
+      - name: Clean Docker config
+        if: always()
+        run: |
+          rm -rf "$DOCKER_CONFIG_DIR"
