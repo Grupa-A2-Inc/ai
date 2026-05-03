@@ -99,6 +99,32 @@ class AdaptiveExercisesEndpointTests(APITestCase):
         self.assertIn("correctAnswers", exercise)
         self.assertIn("difficulty", exercise)
 
+    def test_adaptive_exercises_returns_requested_distinct_exercises(self):
+        url = reverse("adaptive-exercises")
+
+        payload = {
+            "studentId": "student-uuid-1",
+            "subjectId": 2,
+            "topicId": 1102,
+            "count": 2,
+        }
+
+        response = self.client.post(
+            url,
+            payload,
+            format="json",
+            HTTP_X_API_KEY="test-secret",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["exercises"]), 2)
+
+        exercise_ids = [
+            exercise["exerciseId"]
+            for exercise in response.data["exercises"]
+        ]
+        self.assertEqual(len(exercise_ids), len(set(exercise_ids)))
+
     def test_adaptive_exercises_default_count_is_five(self):
         url = reverse("adaptive-exercises")
 

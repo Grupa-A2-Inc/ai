@@ -14,7 +14,13 @@ class QuestionRecommendationEngine:
         self.difficulty_estimator = DifficultyEstimator()
         self.selection_engine = QuestionSelectionEngine()
 
-    def recommend(self, user_id: int, subject_id: int, topic_id: int):
+    def recommend(
+        self,
+        user_id: int,
+        subject_id: int,
+        topic_id: int,
+        excluded_question_ids=None,
+    ):
         student_context = self.repository.build_student_context(
             user_id=user_id,
             subject_id=subject_id,
@@ -31,10 +37,13 @@ class QuestionRecommendationEngine:
             mastery_result.mastery_score
         )
 
+        seen_question_ids = set(student_context.seen_question_ids)
+        seen_question_ids.update(excluded_question_ids or [])
+
         selected_question = self.selection_engine.select(
             candidate_questions=student_context.candidate_questions,
             target_difficulty=difficulty_result.target_difficulty,
-            seen_question_ids=student_context.seen_question_ids,
+            seen_question_ids=seen_question_ids,
         )
 
         if selected_question is None:
