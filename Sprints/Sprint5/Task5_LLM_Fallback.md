@@ -6,7 +6,7 @@ Acest task implementează mecanismul de fallback pentru cazul în care sistemul 
 
 În flow-ul actual, backend-ul cere exerciții prin:
 
-`POST /api/adaptive/exercises`
+`POST /ai/api/v1/adaptive/exercises`
 
 AI-ul încearcă să aleagă întrebări existente din baza de date folosind:
 
@@ -35,7 +35,7 @@ o salvăm în Question + QuestionOption + QuestionCorrectOption,
 ```
 Backend cere exerciții
         ↓
-/api/adaptive/exercises
+/ai/api/v1/adaptive/exercises
         ↓
 AdaptiveExerciseService
         ↓
@@ -75,7 +75,7 @@ Nu se creează endpoint nou.
 
 Fallback-ul se integrează în endpoint-ul deja existent:
 
-`POST /api/adaptive/exercises`
+`POST /ai/api/v1/adaptive/exercises`
 
 Request-ul rămâne același:
 ```

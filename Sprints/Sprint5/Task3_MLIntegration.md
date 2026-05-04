@@ -132,7 +132,7 @@ Cum se folosește modelul ML
 
 La runtime, când backend-ul cere:
 
-`POST /api/adaptive/exercises`
+`POST /ai/api/v1/adaptive/exercises`
 
 Task3 din Sprint 4 apelează:
 
@@ -168,7 +168,7 @@ Task3 e gata când:
 - există strategie rule-based vs ML
 - engine-ul folosește ML doar după 10 interacțiuni pe topic
 - engine-ul face fallback la rule-based dacă modelul lipsește
-- endpointul /api/adaptive/exercises funcționează fără schimbări mari
+- endpointul /ai/api/v1/adaptive/exercises funcționează fără schimbări mari
 - testele vechi încă trec
 - există teste pentru:
   - sub 10 interacțiuni → rule-based

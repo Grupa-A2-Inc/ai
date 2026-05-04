@@ -15,22 +15,21 @@ def health(request):
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('health/', health),
-    path('', include('tutoring.urls')),
     path('ai/', include('tutoring.urls')),
 
     # OpenAPI schema
-    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('ai/api/v1/schema/', SpectacularAPIView.as_view(), name='schema'),
 
     # Swagger UI
     path(
-        'api/docs/',
+        'ai/api/v1/docs/',
         SpectacularSwaggerView.as_view(url_name='schema'),
         name='swagger-ui'
     ),
 
     # Optional: ReDoc UI
     path(
-        'api/redoc/',
+        'ai/api/v1/redoc/',
         SpectacularRedocView.as_view(url_name='schema'),
         name='redoc'
     ),

@@ -38,8 +38,13 @@ class AdaptiveExercisesView(APIView):
         if api_key != settings.EXTERNAL_API_KEY:
             raise PermissionDenied(INVALID_API_KEY_MESSAGE)
 
+        logger.info(f"AdaptiveExercises request data: {request.data}")
         serializer = AdaptiveExercisesRequestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            logger.error(f"AdaptiveExercises validation errors: {serializer.errors}")
+            serializer.is_valid(raise_exception=True)
+        else:
+            logger.info(f"AdaptiveExercises validation passed: {serializer.validated_data}")
 
         student_id = serializer.validated_data["studentId"]
         subject_id = serializer.validated_data["subjectId"]
