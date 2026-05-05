@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import path, include
+from django.views.decorators.http import require_GET
 
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -8,6 +9,7 @@ from drf_spectacular.views import (
     SpectacularRedocView,
 )
 
+@require_GET
 def health(request):
     return JsonResponse({"status": "UP"})
 
