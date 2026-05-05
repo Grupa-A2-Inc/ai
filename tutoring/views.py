@@ -1,4 +1,12 @@
 import logging
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+    inline_serializer,
+)
+from rest_framework import serializers
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -6,6 +14,7 @@ from django.conf import settings
 from rest_framework.exceptions import PermissionDenied
 
 from tutoring.serializers import RecommendationRequestSerializer
+from tutoring.serializers import RecommendationResponseSerializer
 from tutoring.services.recommendation_engine import QuestionRecommendationEngine
 from tutoring.serializers import AdaptiveFeedbackRequestSerializer
 from tutoring.services.feedback_service import (
@@ -32,9 +41,94 @@ from tutoring.services.curriculum_catalog_service import CurriculumCatalogServic
 logger = logging.getLogger(__name__)
 INVALID_API_KEY_MESSAGE = "Invalid API key"
 
+API_KEY_HEADER = OpenApiParameter(
+    name="X-API-Key",
+    type=str,
+    location=OpenApiParameter.HEADER,
+    required=True,
+    description="Cheia de acces configurată în modulul AI pentru apelurile backend-to-backend.",
+)
+
+ErrorResponseSerializer = inline_serializer(
+    name="ErrorResponse",
+    fields={"error": serializers.CharField()},
+)
+
+AckResponseSerializer = inline_serializer(
+    name="AckResponse",
+    fields={"ack": serializers.BooleanField()},
+)
+
+StudentSyncResponseSerializer = inline_serializer(
+    name="StudentSyncResponse",
+    fields={
+        "requestId": serializers.CharField(),
+        "status": serializers.CharField(),
+        "message": serializers.CharField(),
+    },
+)
+
 class AdaptiveExercisesView(APIView):
     permission_classes = [HasValidApiKey]
 
+    @extend_schema(
+        operation_id="generateAdaptiveExercises",
+        tags=["Adaptive Learning"],
+        summary="Generează exerciții adaptive pentru un elev",
+        description=(
+            "Primește elevul, materia și topicul selectat de aplicație și întoarce "
+            "un set de exerciții calibrate pe nivelul estimat al elevului. Endpointul "
+            "folosește istoricul elevului și banca de întrebări disponibilă pentru "
+            "topic; dacă elevul nu există în modulul AI, trebuie apelată mai întâi "
+            "sincronizarea elevului."
+        ),
+        parameters=[API_KEY_HEADER],
+        request=AdaptiveExercisesRequestSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=AdaptiveExercisesResponseSerializer,
+                description="Exerciții generate cu succes.",
+            ),
+            400: OpenApiResponse(description="Request invalid."),
+            403: OpenApiResponse(description="X-API-Key lipsă sau invalid."),
+            404: OpenApiResponse(
+                response=ErrorResponseSerializer,
+                description="Elevul nu este sincronizat în modulul AI.",
+            ),
+            503: OpenApiResponse(
+                response=ErrorResponseSerializer,
+                description="Serviciul de exerciții adaptive nu este disponibil.",
+            ),
+        },
+        examples=[
+            OpenApiExample(
+                "Cerere exerciții adaptive",
+                value={
+                    "studentId": "student-uuid-1",
+                    "subjectId": 2,
+                    "topicId": 1102,
+                    "count": 5,
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                "Răspuns exerciții adaptive",
+                value={
+                    "exercises": [
+                        {
+                            "exerciseId": "42",
+                            "text": "Rezolvă ecuația 2x + 4 = 10.",
+                            "type": "SINGLE_CHOICE",
+                            "answers": ["x = 2", "x = 3", "x = 4"],
+                            "correctAnswers": ["x = 3"],
+                            "difficulty": 0.5,
+                        }
+                    ]
+                },
+                response_only=True,
+            ),
+        ],
+    )
     def post(self, request):
 
         api_key = request.headers.get("X-API-Key")
@@ -95,6 +189,26 @@ class AdaptiveExercisesView(APIView):
         )
 
 class RecommendQuestionView(APIView):
+    @extend_schema(
+        operation_id="recommendQuestion",
+        tags=["Internal Recommendation"],
+        summary="Recomandă următoarea întrebare pentru un topic",
+        description=(
+            "Endpoint intern istoric pentru recomandarea unei singure întrebări. "
+            "Primește identificatorii elevului, materiei și topicului, apoi returnează "
+            "întrebarea recomandată împreună cu dificultatea estimată și sursa deciziei."
+        ),
+        request=RecommendationRequestSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=RecommendationResponseSerializer,
+                description="Întrebare recomandată cu succes.",
+            ),
+            400: OpenApiResponse(description="Request invalid."),
+            404: OpenApiResponse(description="Nu există întrebare recomandabilă pentru topic."),
+            500: OpenApiResponse(description="Eroare internă în motorul de recomandare."),
+        },
+    )
     def post(self, request):
         serializer = RecommendationRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -132,6 +246,43 @@ class RecommendQuestionView(APIView):
             )
         
 class StudentSyncView(APIView):
+    @extend_schema(
+        operation_id="syncStudent",
+        tags=["Students"],
+        summary="Sincronizează un elev în modulul AI",
+        description=(
+            "Creează profilul elevului în modulul AI dacă nu există deja și asigură "
+            "niveluri implicite de mastery pentru topicurile disponibile. Endpointul "
+            "este idempotent: apelurile repetate pentru același student nu dublează "
+            "datele existente."
+        ),
+        parameters=[API_KEY_HEADER],
+        request=StudentSyncRequestSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=StudentSyncResponseSerializer,
+                description="Elev sincronizat sau deja existent.",
+            ),
+            400: OpenApiResponse(description="Request invalid."),
+            403: OpenApiResponse(description="X-API-Key lipsă sau invalid."),
+        },
+        examples=[
+            OpenApiExample(
+                "Cerere sincronizare elev",
+                value={"requestId": "request-1", "studentId": "student-uuid-1"},
+                request_only=True,
+            ),
+            OpenApiExample(
+                "Răspuns sincronizare elev",
+                value={
+                    "requestId": "request-1",
+                    "status": "ok",
+                    "message": "Student registered in AI module with default topic levels.",
+                },
+                response_only=True,
+            ),
+        ],
+    )
     def post(self, request):
 
         api_key = request.headers.get("X-API-Key")
@@ -160,6 +311,58 @@ class StudentSyncView(APIView):
         )
 
 class AdaptiveFeedbackView(APIView):
+    @extend_schema(
+        operation_id="recordAdaptiveFeedback",
+        tags=["Adaptive Learning"],
+        summary="Înregistrează rezultatele exercițiilor adaptive",
+        description=(
+            "Primește rezultatele obținute de elev pentru exercițiile returnate anterior "
+            "și actualizează istoricul interacțiunilor, statisticile întrebărilor și "
+            "nivelul de mastery al elevului pe topic. Fiecare rezultat trebuie să "
+            "referențieze un `mlExerciseId` valid pentru materia și topicul trimise."
+        ),
+        parameters=[API_KEY_HEADER],
+        request=AdaptiveFeedbackRequestSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=AckResponseSerializer,
+                description="Feedback înregistrat cu succes.",
+            ),
+            400: OpenApiResponse(description="Request invalid."),
+            403: OpenApiResponse(description="X-API-Key lipsă sau invalid."),
+            404: OpenApiResponse(
+                response=AckResponseSerializer,
+                description="Elevul sau exercițiul nu există.",
+            ),
+            500: OpenApiResponse(
+                response=AckResponseSerializer,
+                description="Eroare internă la înregistrarea feedbackului.",
+            ),
+        },
+        examples=[
+            OpenApiExample(
+                "Cerere feedback",
+                value={
+                    "studentId": "student-uuid-1",
+                    "subjectId": 2,
+                    "topicId": 1102,
+                    "results": [
+                        {
+                            "mlExerciseId": "42",
+                            "score": 1.0,
+                            "timeSpent": 35.5,
+                        }
+                    ],
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                "Răspuns feedback",
+                value={"ack": True},
+                response_only=True,
+            ),
+        ],
+    )
     def post(self, request):
         api_key = request.headers.get("X-API-Key")
         if api_key != settings.EXTERNAL_API_KEY:
@@ -195,6 +398,70 @@ class AdaptiveFeedbackView(APIView):
 
 
 class CurriculumCatalogView(APIView):
+    @extend_schema(
+        operation_id="getCurriculumCatalog",
+        tags=["Curriculum Catalog"],
+        summary="Returnează catalogul de materii și topicuri",
+        description=(
+            "Expune către backend catalogul curricular folosit de modulul AI: "
+            "`subjectId`, numele materiei, `topicId`, numele topicului și clasa. "
+            "Fără filtre, endpointul returnează toate materiile și toate topicurile "
+            "cunoscute. Filtrele pot fi combinate pentru a restrânge rezultatele după "
+            "clasă, materie sau topic."
+        ),
+        parameters=[
+            API_KEY_HEADER,
+            OpenApiParameter(
+                name="grade",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Clasa pentru care se returnează topicurile, de exemplu `9`.",
+            ),
+            OpenApiParameter(
+                name="subjectId",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Materia pentru care se returnează topicurile, de exemplu `2` pentru Matematică.",
+            ),
+            OpenApiParameter(
+                name="topicId",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Topicul exact care trebuie rezolvat la nume și clasă, de exemplu `1102`.",
+            ),
+        ],
+        responses={
+            200: OpenApiResponse(
+                response=CurriculumCatalogResponseSerializer,
+                description="Catalog curricular returnat cu succes.",
+            ),
+            400: OpenApiResponse(description="Filtre invalide."),
+            403: OpenApiResponse(description="X-API-Key lipsă sau invalid."),
+        },
+        examples=[
+            OpenApiExample(
+                "Răspuns catalog filtrat",
+                value={
+                    "subjects": [
+                        {"subjectId": 2, "subjectName": "Matematică"}
+                    ],
+                    "topics": [
+                        {
+                            "topicId": 1102,
+                            "subjectId": 2,
+                            "subjectName": "Matematică",
+                            "grade": 9,
+                            "topicName": "Ecuații și inecuații",
+                        }
+                    ],
+                },
+                response_only=True,
+            ),
+        ],
+    )
     def get(self, request):
         api_key = request.headers.get("X-API-Key")
         if api_key != settings.EXTERNAL_API_KEY:
