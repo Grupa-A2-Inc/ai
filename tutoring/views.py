@@ -19,12 +19,15 @@ from tutoring.serializers import StudentSyncRequestSerializer
 from tutoring.serializers import (
     AdaptiveExercisesRequestSerializer,
     AdaptiveExercisesResponseSerializer,
+    CurriculumCatalogQuerySerializer,
+    CurriculumCatalogResponseSerializer,
 )
 from tutoring.security.api_key_permission import HasValidApiKey
 from tutoring.services.adaptive_exercise_service import (
     AdaptiveExerciseService,
     StudentNotFoundError as AdaptiveExerciseStudentNotFoundError,
 )
+from tutoring.services.curriculum_catalog_service import CurriculumCatalogService
 
 logger = logging.getLogger(__name__)
 INVALID_API_KEY_MESSAGE = "Invalid API key"
@@ -189,3 +192,28 @@ class AdaptiveFeedbackView(APIView):
             )
 
         return Response({"ack": True}, status=status.HTTP_200_OK)
+
+
+class CurriculumCatalogView(APIView):
+    def get(self, request):
+        api_key = request.headers.get("X-API-Key")
+        if api_key != settings.EXTERNAL_API_KEY:
+            raise PermissionDenied(INVALID_API_KEY_MESSAGE)
+
+        serializer = CurriculumCatalogQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+
+        service = CurriculumCatalogService()
+        catalog = service.list_catalog(
+            grade=serializer.validated_data.get("grade"),
+            subject_id=serializer.validated_data.get("subjectId"),
+            topic_id=serializer.validated_data.get("topicId"),
+        )
+
+        response_serializer = CurriculumCatalogResponseSerializer(data=catalog)
+        response_serializer.is_valid(raise_exception=True)
+
+        return Response(
+            response_serializer.validated_data,
+            status=status.HTTP_200_OK,
+        )

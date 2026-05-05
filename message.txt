@@ -1,0 +1,222 @@
+{
+  "subjects": [
+    { "subject_id": 1, "name": "Limba și literatura română" },
+    { "subject_id": 2, "name": "Matematică" },
+    { "subject_id": 3, "name": "Biologie" },
+    { "subject_id": 4, "name": "Geografie" },
+    { "subject_id": 5, "name": "Fizică" },
+    { "subject_id": 6, "name": "Chimie" },
+    { "subject_id": 7, "name": "Istorie" },
+    { "subject_id": 8, "name": "TIC" },
+    { "subject_id": 9, "name": "Informatică" },
+    { "subject_id": 10, "name": "Logică, argumentare și comunicare" },
+    { "subject_id": 11, "name": "Filosofie" },
+    { "subject_id": 12, "name": "Limba engleză" }
+  ],
+  "topics": [
+    { "topic_id": 1001, "subject_id": 1, "grade": 9, "name": "Norme ortografice și de punctuație" },
+    { "topic_id": 1002, "subject_id": 1, "grade": 9, "name": "Vocabular și sensuri ale cuvintelor" },
+    { "topic_id": 1003, "subject_id": 1, "grade": 9, "name": "Comunicare orală și scrisă" },
+    { "topic_id": 1004, "subject_id": 1, "grade": 9, "name": "Elemente de construcție a textului" },
+
+    { "topic_id": 1101, "subject_id": 2, "grade": 9, "name": "Mulțimi de numere și operații" },
+    { "topic_id": 1102, "subject_id": 2, "grade": 9, "name": "Ecuații și inecuații" },
+    { "topic_id": 1103, "subject_id": 2, "grade": 9, "name": "Funcții și reprezentare grafică" },
+    { "topic_id": 1104, "subject_id": 2, "grade": 9, "name": "Geometrie plană și relații metrice" },
+
+    { "topic_id": 1201, "subject_id": 3, "grade": 9, "name": "Organizarea lumii vii" },
+    { "topic_id": 1202, "subject_id": 3, "grade": 9, "name": "Celula: structură și funcții" },
+    { "topic_id": 1203, "subject_id": 3, "grade": 9, "name": "Țesuturi, organe și sisteme" },
+    { "topic_id": 1204, "subject_id": 3, "grade": 9, "name": "Biodiversitate și clasificare" },
+
+    { "topic_id": 1301, "subject_id": 4, "grade": 9, "name": "Relief și procese geomorfologice" },
+    { "topic_id": 1302, "subject_id": 4, "grade": 9, "name": "Atmosfera și clima" },
+    { "topic_id": 1303, "subject_id": 4, "grade": 9, "name": "Apele Terrei" },
+    { "topic_id": 1304, "subject_id": 4, "grade": 9, "name": "Medii naturale și protecția mediului" },
+
+    { "topic_id": 1401, "subject_id": 5, "grade": 9, "name": "Mărimi fizice și unități de măsură" },
+    { "topic_id": 1402, "subject_id": 5, "grade": 9, "name": "Mișcare și repaus" },
+    { "topic_id": 1403, "subject_id": 5, "grade": 9, "name": "Forțe și legile mișcării" },
+    { "topic_id": 1404, "subject_id": 5, "grade": 9, "name": "Energie mecanică" },
+
+    { "topic_id": 1501, "subject_id": 6, "grade": 9, "name": "Structura atomului" },
+    { "topic_id": 1502, "subject_id": 6, "grade": 9, "name": "Tabelul periodic" },
+    { "topic_id": 1503, "subject_id": 6, "grade": 9, "name": "Legături chimice" },
+    { "topic_id": 1504, "subject_id": 6, "grade": 9, "name": "Reacții chimice simple" },
+
+    { "topic_id": 1601, "subject_id": 7, "grade": 9, "name": "Introducere în studiul istoriei" },
+    { "topic_id": 1602, "subject_id": 7, "grade": 9, "name": "Civilizații și spații istorice" },
+    { "topic_id": 1603, "subject_id": 7, "grade": 9, "name": "Evul Mediu" },
+    { "topic_id": 1604, "subject_id": 7, "grade": 9, "name": "Instituții și societate medievală" },
+
+    { "topic_id": 1701, "subject_id": 8, "grade": 9, "name": "Concepte de bază ale TIC" },
+    { "topic_id": 1702, "subject_id": 8, "grade": 9, "name": "Sisteme de operare și fișiere" },
+    { "topic_id": 1703, "subject_id": 8, "grade": 9, "name": "Internet și siguranță digitală" },
+    { "topic_id": 1704, "subject_id": 8, "grade": 9, "name": "Editare documente și prezentări" },
+
+    { "topic_id": 1801, "subject_id": 9, "grade": 9, "name": "Algoritmi: noțiuni introductive" },
+    { "topic_id": 1802, "subject_id": 9, "grade": 9, "name": "Date de intrare și ieșire" },
+    { "topic_id": 1803, "subject_id": 9, "grade": 9, "name": "Structuri de control" },
+    { "topic_id": 1804, "subject_id": 9, "grade": 9, "name": "Pseudocod și scheme logice" },
+
+    { "topic_id": 1901, "subject_id": 10, "grade": 9, "name": "Termeni și noțiuni" },
+    { "topic_id": 1902, "subject_id": 10, "grade": 9, "name": "Definiții, clasificări și exemple în logică" },
+    { "topic_id": 1903, "subject_id": 10, "grade": 9, "name": "Logică propozițională și operatori logic" },
+    { "topic_id": 1904, "subject_id": 10, "grade": 9, "name": "Tipuri de rationamente" },
+
+    { "topic_id": 2001, "subject_id": 12, "grade": 9, "name": "Basic grammar structures" },
+    { "topic_id": 2002, "subject_id": 12, "grade": 9, "name": "Everyday vocabulary" },
+    { "topic_id": 2003, "subject_id": 12, "grade": 9, "name": "Phrasal Verbs" },
+    { "topic_id": 2004, "subject_id": 12, "grade": 9, "name": "Common Confusing Words" },
+
+    { "topic_id": 1005, "subject_id": 1, "grade": 10, "name": "Text literar și text nonliterar" },
+    { "topic_id": 1006, "subject_id": 1, "grade": 10, "name": "Moduri de expunere" },
+    { "topic_id": 1007, "subject_id": 1, "grade": 10, "name": "Figuri de stil și imagini artistice" },
+    { "topic_id": 1008, "subject_id": 1, "grade": 10, "name": "Redactarea textului argumentativ" },
+
+    { "topic_id": 1105, "subject_id": 2, "grade": 10, "name": "Funcții elementare" },
+    { "topic_id": 1106, "subject_id": 2, "grade": 10, "name": "Trigonometrie" },
+    { "topic_id": 1107, "subject_id": 2, "grade": 10, "name": "Vectori și geometrie analitică" },
+    { "topic_id": 1108, "subject_id": 2, "grade": 10, "name": "Sisteme de ecuații" },
+
+    { "topic_id": 1205, "subject_id": 3, "grade": 10, "name": "Funcțiile de nutriție la plante" },
+    { "topic_id": 1206, "subject_id": 3, "grade": 10, "name": "Funcțiile de relație la plante" },
+    { "topic_id": 1207, "subject_id": 3, "grade": 10, "name": "Funcțiile de reproducere" },
+    { "topic_id": 1208, "subject_id": 3, "grade": 10, "name": "Ecologie și ecosisteme" },
+
+    { "topic_id": 1305, "subject_id": 4, "grade": 10, "name": "Geografia Europei" },
+    { "topic_id": 1306, "subject_id": 4, "grade": 10, "name": "Uniunea Europeană" },
+    { "topic_id": 1307, "subject_id": 4, "grade": 10, "name": "Resurse și activități economice" },
+    { "topic_id": 1308, "subject_id": 4, "grade": 10, "name": "State și regiuni europene" },
+
+    { "topic_id": 1405, "subject_id": 5, "grade": 10, "name": "Fenomenul termic" },
+    { "topic_id": 1406, "subject_id": 5, "grade": 10, "name": "Lucru mecanic și putere" },
+    { "topic_id": 1407, "subject_id": 5, "grade": 10, "name": "Presiune și fluide" },
+    { "topic_id": 1408, "subject_id": 5, "grade": 10, "name": "Aplicații ale legilor fizicii" },
+
+    { "topic_id": 1505, "subject_id": 6, "grade": 10, "name": "Oxizi, acizi, baze, săruri" },
+    { "topic_id": 1506, "subject_id": 6, "grade": 10, "name": "Soluții și concentrații" },
+    { "topic_id": 1507, "subject_id": 6, "grade": 10, "name": "Clasificarea reacțiilor chimice" },
+    { "topic_id": 1508, "subject_id": 6, "grade": 10, "name": "Chimie anorganică aplicată" },
+
+    { "topic_id": 1605, "subject_id": 7, "grade": 10, "name": "Epoca modernă" },
+    { "topic_id": 1606, "subject_id": 7, "grade": 10, "name": "Revoluții și schimbări politice" },
+    { "topic_id": 1607, "subject_id": 7, "grade": 10, "name": "Statul modern român" },
+    { "topic_id": 1608, "subject_id": 7, "grade": 10, "name": "Națiune și cetățenie" },
+
+    { "topic_id": 1705, "subject_id": 8, "grade": 10, "name": "Foi de calcul tabelar" },
+    { "topic_id": 1706, "subject_id": 8, "grade": 10, "name": "Baze de date: noțiuni de bază" },
+    { "topic_id": 1707, "subject_id": 8, "grade": 10, "name": "Prelucrarea informației" },
+    { "topic_id": 1708, "subject_id": 8, "grade": 10, "name": "Colaborare și etică digitală" },
+
+    { "topic_id": 1805, "subject_id": 9, "grade": 10, "name": "Tablouri unidimensionale" },
+    { "topic_id": 1806, "subject_id": 9, "grade": 10, "name": "Matrice" },
+    { "topic_id": 1807, "subject_id": 9, "grade": 10, "name": "Subprograme" },
+    { "topic_id": 1808, "subject_id": 9, "grade": 10, "name": "Algoritmi de bază pe date numerice" },
+
+    { "topic_id": 2005, "subject_id": 12, "grade": 10, "name": "Tenses and sentence structure" },
+    { "topic_id": 2006, "subject_id": 12, "grade": 10, "name": "Vocabulary for education and society" },
+    { "topic_id": 2007, "subject_id": 12, "grade": 10, "name": "Written messages and short essays" },
+    { "topic_id": 2008, "subject_id": 12, "grade": 10, "name": "Understanding spoken and written texts" },
+
+    { "topic_id": 1009, "subject_id": 1, "grade": 11, "name": "Curente literare" },
+    { "topic_id": 1010, "subject_id": 1, "grade": 11, "name": "Genuri și specii literare" },
+    { "topic_id": 1011, "subject_id": 1, "grade": 11, "name": "Caracterizarea personajului" },
+    { "topic_id": 1012, "subject_id": 1, "grade": 11, "name": "Eseul literar" },
+
+    { "topic_id": 1109, "subject_id": 2, "grade": 11, "name": "Limite de funcții" },
+    { "topic_id": 1110, "subject_id": 2, "grade": 11, "name": "Continuitate" },
+    { "topic_id": 1111, "subject_id": 2, "grade": 11, "name": "Derivabilitate" },
+    { "topic_id": 1112, "subject_id": 2, "grade": 11, "name": "Probabilități și elemente de statistică" },
+
+    { "topic_id": 1209, "subject_id": 3, "grade": 11, "name": "Digestia și absorbția" },
+    { "topic_id": 1210, "subject_id": 3, "grade": 11, "name": "Respirația și circulația" },
+    { "topic_id": 1211, "subject_id": 3, "grade": 11, "name": "Excreția și homeostazia" },
+    { "topic_id": 1212, "subject_id": 3, "grade": 11, "name": "Sistemul nervos și endocrin" },
+
+    { "topic_id": 1309, "subject_id": 4, "grade": 11, "name": "Geografia populației" },
+    { "topic_id": 1310, "subject_id": 4, "grade": 11, "name": "Așezări umane și urbanizare" },
+    { "topic_id": 1311, "subject_id": 4, "grade": 11, "name": "Economia mondială" },
+    { "topic_id": 1312, "subject_id": 4, "grade": 11, "name": "Globalizare și dezvoltare durabilă" },
+
+    { "topic_id": 1409, "subject_id": 5, "grade": 11, "name": "Electricitate" },
+    { "topic_id": 1410, "subject_id": 5, "grade": 11, "name": "Curent electric și circuite" },
+    { "topic_id": 1411, "subject_id": 5, "grade": 11, "name": "Magnetism" },
+    { "topic_id": 1412, "subject_id": 5, "grade": 11, "name": "Inducție electromagnetică" },
+
+    { "topic_id": 1509, "subject_id": 6, "grade": 11, "name": "Hidrocarburi" },
+    { "topic_id": 1510, "subject_id": 6, "grade": 11, "name": "Compuși organici cu funcțiuni simple" },
+    { "topic_id": 1511, "subject_id": 6, "grade": 11, "name": "Izomerie" },
+    { "topic_id": 1512, "subject_id": 6, "grade": 11, "name": "Reacții în chimia organică" },
+
+    { "topic_id": 1609, "subject_id": 7, "grade": 11, "name": "Secolul al XIX-lea" },
+    { "topic_id": 1610, "subject_id": 7, "grade": 11, "name": "România modernă" },
+    { "topic_id": 1611, "subject_id": 7, "grade": 11, "name": "Relații internaționale" },
+    { "topic_id": 1612, "subject_id": 7, "grade": 11, "name": "Societate și ideologii" },
+
+    { "topic_id": 1809, "subject_id": 9, "grade": 11, "name": "Recursivitate" },
+    { "topic_id": 1810, "subject_id": 9, "grade": 11, "name": "Sortări și căutări" },
+    { "topic_id": 1811, "subject_id": 9, "grade": 11, "name": "Fișiere" },
+    { "topic_id": 1812, "subject_id": 9, "grade": 11, "name": "Algoritmi clasici" },
+
+    { "topic_id": 2101, "subject_id": 11, "grade": 11, "name": "Introducere în filosofie" },
+    { "topic_id": 2102, "subject_id": 11, "grade": 11, "name": "Cunoaștere și adevăr" },
+    { "topic_id": 2103, "subject_id": 11, "grade": 11, "name": "Valori și morală" },
+    { "topic_id": 2104, "subject_id": 11, "grade": 11, "name": "Om, libertate și responsabilitate" },
+
+    { "topic_id": 2009, "subject_id": 12, "grade": 11, "name": "Complex grammar and connectors" },
+    { "topic_id": 2010, "subject_id": 12, "grade": 11, "name": "Formal and informal writing" },
+    { "topic_id": 2011, "subject_id": 12, "grade": 11, "name": "Opinion and argument in English" },
+    { "topic_id": 2012, "subject_id": 12, "grade": 11, "name": "Media and intercultural communication" },
+
+    { "topic_id": 1013, "subject_id": 1, "grade": 12, "name": "Autori canonici" },
+    { "topic_id": 1014, "subject_id": 1, "grade": 12, "name": "Relația dintre operă și curent literar" },
+    { "topic_id": 1015, "subject_id": 1, "grade": 12, "name": "Particularități de construcție a personajului" },
+    { "topic_id": 1016, "subject_id": 1, "grade": 12, "name": "Eseu de tip bacalaureat" },
+
+    { "topic_id": 1113, "subject_id": 2, "grade": 12, "name": "Primitive și integrale" },
+    { "topic_id": 1114, "subject_id": 2, "grade": 12, "name": "Aplicații ale integralei" },
+    { "topic_id": 1115, "subject_id": 2, "grade": 12, "name": "Matrice și determinanți" },
+    { "topic_id": 1116, "subject_id": 2, "grade": 12, "name": "Sisteme liniare" },
+
+    { "topic_id": 1213, "subject_id": 3, "grade": 12, "name": "Genetică: noțiuni fundamentale" },
+    { "topic_id": 1214, "subject_id": 3, "grade": 12, "name": "Ereditate și variabilitate" },
+    { "topic_id": 1215, "subject_id": 3, "grade": 12, "name": "Evoluționism" },
+    { "topic_id": 1216, "subject_id": 3, "grade": 12, "name": "Biotehnologii și aplicații" },
+
+    { "topic_id": 1313, "subject_id": 4, "grade": 12, "name": "Geografia României: relief" },
+    { "topic_id": 1314, "subject_id": 4, "grade": 12, "name": "Geografia României: climă și ape" },
+    { "topic_id": 1315, "subject_id": 4, "grade": 12, "name": "Populația și economia României" },
+    { "topic_id": 1316, "subject_id": 4, "grade": 12, "name": "România în Europa" },
+
+    { "topic_id": 1413, "subject_id": 5, "grade": 12, "name": "Optică geometrică" },
+    { "topic_id": 1414, "subject_id": 5, "grade": 12, "name": "Optică ondulatorie" },
+    { "topic_id": 1415, "subject_id": 5, "grade": 12, "name": "Fizică modernă" },
+    { "topic_id": 1416, "subject_id": 5, "grade": 12, "name": "Aplicații și probleme recapitulative" },
+
+    { "topic_id": 1513, "subject_id": 6, "grade": 12, "name": "Compuși organici cu funcțiuni mixte" },
+    { "topic_id": 1514, "subject_id": 6, "grade": 12, "name": "Macromolecule și polimeri" },
+    { "topic_id": 1515, "subject_id": 6, "grade": 12, "name": "Biochimie elementară" },
+    { "topic_id": 1516, "subject_id": 6, "grade": 12, "name": "Aplicații ale chimiei organice" },
+
+    { "topic_id": 1613, "subject_id": 7, "grade": 12, "name": "Secolul XX" },
+    { "topic_id": 1614, "subject_id": 7, "grade": 12, "name": "România contemporană" },
+    { "topic_id": 1615, "subject_id": 7, "grade": 12, "name": "Regimuri politice și democrație" },
+    { "topic_id": 1616, "subject_id": 7, "grade": 12, "name": "Europa și lumea postbelică" },
+
+    { "topic_id": 1813, "subject_id": 9, "grade": 12, "name": "Structuri de date de bază" },
+    { "topic_id": 1814, "subject_id": 9, "grade": 12, "name": "Backtracking" },
+    { "topic_id": 1815, "subject_id": 9, "grade": 12, "name": "Grafuri: noțiuni introductive" },
+    { "topic_id": 1816, "subject_id": 9, "grade": 12, "name": "Analiza complexității" },
+
+    { "topic_id": 2105, "subject_id": 11, "grade": 12, "name": "Problema existenței" },
+    { "topic_id": 2106, "subject_id": 11, "grade": 12, "name": "Libertate și determinism" },
+    { "topic_id": 2107, "subject_id": 11, "grade": 12, "name": "Valori politice și sociale" },
+    { "topic_id": 2108, "subject_id": 11, "grade": 12, "name": "Argument filosofic aplicat" },
+
+    { "topic_id": 2013, "subject_id": 12, "grade": 12, "name": "Advanced reading comprehension" },
+    { "topic_id": 2014, "subject_id": 12, "grade": 12, "name": "Essay and review writing" },
+    { "topic_id": 2015, "subject_id": 12, "grade": 12, "name": "Grammar consolidation for exams" },
+    { "topic_id": 2016, "subject_id": 12, "grade": 12, "name": "Integrated communication tasks" }
+  ]
+}

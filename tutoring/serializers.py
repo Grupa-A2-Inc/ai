@@ -63,3 +63,27 @@ class AdaptiveFeedbackRequestSerializer(serializers.Serializer):
                 "At least one feedback result is required."
             )
         return value
+
+
+class CurriculumCatalogQuerySerializer(serializers.Serializer):
+    grade = serializers.IntegerField(min_value=1, required=False)
+    subjectId = serializers.IntegerField(min_value=1, required=False)
+    topicId = serializers.IntegerField(min_value=1, required=False)
+
+
+class CurriculumSubjectSerializer(serializers.Serializer):
+    subjectId = serializers.IntegerField()
+    subjectName = serializers.CharField()
+
+
+class CurriculumTopicSerializer(serializers.Serializer):
+    topicId = serializers.IntegerField()
+    subjectId = serializers.IntegerField()
+    subjectName = serializers.CharField()
+    grade = serializers.IntegerField()
+    topicName = serializers.CharField()
+
+
+class CurriculumCatalogResponseSerializer(serializers.Serializer):
+    subjects = CurriculumSubjectSerializer(many=True)
+    topics = CurriculumTopicSerializer(many=True)
