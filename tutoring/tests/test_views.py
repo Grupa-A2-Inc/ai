@@ -17,6 +17,7 @@ from tutoring.services.feedback_service import (
 from tutoring.views import (
     AdaptiveExercisesView,
     AdaptiveFeedbackView,
+    CurriculumCatalogView,
     RecommendQuestionView,
     StudentSyncView,
 )
@@ -229,6 +230,91 @@ class ViewCoverageTests(APITestCase):
 
     def test_adaptive_feedback_rejects_invalid_api_key_in_view(self):
         assert_invalid_api_key_is_rejected(AdaptiveFeedbackView)
+
+    def test_curriculum_catalog_rejects_invalid_api_key_in_view(self):
+        request = SimpleNamespace(headers={"X-API-Key": "wrong-key"})
+
+        with pytest.raises(PermissionDenied):
+            CurriculumCatalogView().get(request)
+
+    def test_curriculum_catalog_returns_filtered_subjects_and_topics(self):
+        response = self.client.get(
+            reverse("curriculum-catalog"),
+            {"grade": 9, "subjectId": 2},
+            format="json",
+            HTTP_X_API_KEY="test-secret",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["subjects"],
+            [{"subjectId": 2, "subjectName": "Matematică"}],
+        )
+        self.assertEqual(
+            response.data["topics"],
+            [
+                {
+                    "topicId": 1101,
+                    "subjectId": 2,
+                    "subjectName": "Matematică",
+                    "grade": 9,
+                    "topicName": "Mulțimi de numere și operații",
+                },
+                {
+                    "topicId": 1102,
+                    "subjectId": 2,
+                    "subjectName": "Matematică",
+                    "grade": 9,
+                    "topicName": "Ecuații și inecuații",
+                },
+                {
+                    "topicId": 1103,
+                    "subjectId": 2,
+                    "subjectName": "Matematică",
+                    "grade": 9,
+                    "topicName": "Funcții și reprezentare grafică",
+                },
+                {
+                    "topicId": 1104,
+                    "subjectId": 2,
+                    "subjectName": "Matematică",
+                    "grade": 9,
+                    "topicName": "Geometrie plană și relații metrice",
+                },
+            ],
+        )
+
+    def test_curriculum_catalog_can_resolve_single_topic_name(self):
+        response = self.client.get(
+            reverse("curriculum-catalog"),
+            {"topicId": 1102},
+            format="json",
+            HTTP_X_API_KEY="test-secret",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["subjects"], [
+            {"subjectId": 2, "subjectName": "Matematică"}
+        ])
+        self.assertEqual(response.data["topics"], [
+            {
+                "topicId": 1102,
+                "subjectId": 2,
+                "subjectName": "Matematică",
+                "grade": 9,
+                "topicName": "Ecuații și inecuații",
+            }
+        ])
+
+    def test_curriculum_catalog_validates_query_params(self):
+        response = self.client.get(
+            reverse("curriculum-catalog"),
+            {"grade": 0},
+            format="json",
+            HTTP_X_API_KEY="test-secret",
+        )
+
+        self.assertEqual(response.status_code, 400)
 
     @patch("tutoring.views.FeedbackService")
     def test_adaptive_feedback_returns_ack_true(self, service_class):
