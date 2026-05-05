@@ -6,7 +6,7 @@ class FeatureEngineeringService:
 
         if not history:
             return TopicFeatures(
-                accuracy=0.5,
+                accuracy=getattr(student_context, "topic_mastery_score", 0.5),
                 avg_time=30.0,
                 attempt_count=0,
             )

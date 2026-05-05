@@ -110,6 +110,54 @@ class AdaptiveFeedbackEndpointTests(APITestCase):
         self.assertEqual(self.question_one.times_correct, 1)
         self.assertEqual(self.question_one.avg_time_spent, 30)
 
+    def test_feedback_correct_answer_reduces_question_difficulty(self):
+        old_difficulty = self.question_one.difficulty
+
+        response = self.client.post(
+            reverse("adaptive-feedback"),
+            {
+                "studentId": "student-uuid-1",
+                "subjectId": 2,
+                "topicId": 1102,
+                "results": [
+                    {"mlExerciseId": "1", "score": 1, "timeSpent": 20},
+                ],
+            },
+            format="json",
+            HTTP_X_API_KEY="test-secret",
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        self.question_one.refresh_from_db()
+
+        self.assertLess(self.question_one.difficulty, old_difficulty)
+
+    def test_feedback_wrong_answer_from_strong_student_increases_question_difficulty(self):
+        self.topic_level.mastery_score = 0.8
+        self.topic_level.save(update_fields=["mastery_score"])
+        old_difficulty = self.question_one.difficulty
+
+        response = self.client.post(
+            reverse("adaptive-feedback"),
+            {
+                "studentId": "student-uuid-1",
+                "subjectId": 2,
+                "topicId": 1102,
+                "results": [
+                    {"mlExerciseId": "1", "score": 0, "timeSpent": 80},
+                ],
+            },
+            format="json",
+            HTTP_X_API_KEY="test-secret",
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        self.question_one.refresh_from_db()
+
+        self.assertGreater(self.question_one.difficulty, old_difficulty)
+
     def test_feedback_with_good_scores_increases_mastery(self):
         response = self.client.post(
             reverse("adaptive-feedback"),
