@@ -14,6 +14,7 @@ class DummyInteraction:
 @dataclass
 class DummyStudentContext:
     history: List[DummyInteraction]
+    topic_mastery_score: float = 0.5
 
 
 class TestFeatureEngineeringService:
@@ -53,6 +54,18 @@ class TestFeatureEngineeringService:
         features = self.service.build_features(student_context)
 
         assert features.accuracy == 0.5
+        assert features.avg_time == 30.0
+        assert features.attempt_count == 0
+
+    def test_uses_topic_mastery_for_student_without_history(self):
+        student_context = DummyStudentContext(
+            history=[],
+            topic_mastery_score=0.8,
+        )
+
+        features = self.service.build_features(student_context)
+
+        assert features.accuracy == 0.8
         assert features.avg_time == 30.0
         assert features.attempt_count == 0
 

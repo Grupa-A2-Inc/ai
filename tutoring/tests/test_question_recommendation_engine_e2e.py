@@ -23,6 +23,7 @@ class DummyStudentContext:
     history: list
     seen_question_ids: list
     candidate_questions: list
+    topic_mastery_score: float = 0.5
 
 
 class FakeRepository:
@@ -258,6 +259,31 @@ class QuestionRecommendationEngineE2ETests(TestCase):
         self.assertEqual(result.subject_id, 1)
         self.assertEqual(result.topic_id, 3)
         self.assertEqual(result.difficulty, 0.6)
+
+    def test_end_to_end_uses_saved_topic_mastery_when_history_is_empty(self):
+        engine = QuestionRecommendationEngine()
+
+        student_context = DummyStudentContext(
+            history=[],
+            seen_question_ids=[],
+            candidate_questions=[
+                DummyQuestion(id=21, subject_id=1, topic_id=3, difficulty=0.5),
+                DummyQuestion(id=22, subject_id=1, topic_id=3, difficulty=0.8),
+            ],
+            topic_mastery_score=0.8,
+        )
+
+        engine.repository = FakeRepository(student_context)
+
+        result = engine.recommend(
+            user_id=100,
+            subject_id=1,
+            topic_id=3,
+        )
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result.question_id, 22)
+        self.assertEqual(result.difficulty, 0.8)
         self.assertEqual(result.source, "selection")
 
     def test_end_to_end_skips_best_seen_question_and_selects_next_best(self):
