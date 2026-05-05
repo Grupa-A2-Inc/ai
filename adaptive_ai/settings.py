@@ -157,3 +157,14 @@ STATIC_URL = 'static/'
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Adaptive AI Tutoring API",
+    "DESCRIPTION": (
+        "API pentru modulul AI de tutoring adaptiv. Expune sincronizarea "
+        "elevilor, catalogul curricular, generarea exercițiilor adaptive și "
+        "înregistrarea feedbackului după rezolvare."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+}
