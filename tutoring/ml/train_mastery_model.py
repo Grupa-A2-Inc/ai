@@ -115,9 +115,12 @@ class MasteryModelTrainer:
             "random_forest": RandomForestRegressor(
                 n_estimators=100,
                 max_depth=10,
+                min_samples_leaf=1,
+                max_features=1.0,
                 random_state=42,
             ),
             "gradient_boosting": GradientBoostingRegressor(
+                learning_rate=0.1,
                 random_state=42,
             ),
         }

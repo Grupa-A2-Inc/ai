@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import List
 
 from tutoring.dto.topic_features import TopicFeatures
@@ -130,3 +131,47 @@ class TestFeatureEngineeringService:
             "normalized_recent_time": 0.5,
             "current_mastery": 0.65,
         }
+
+    def test_build_ml_features_uses_defaults_for_empty_history(self):
+        student_context = DummyStudentContext(
+            history=[],
+            recent_history=[],
+            topic_mastery_score=0.7,
+        )
+
+        features = self.service.build_ml_features(
+            student_context=student_context,
+            subject_id=2,
+            topic_id=1102,
+        )
+
+        assert features["question_difficulty"] == 0.5
+        assert features["score"] == 0.7
+        assert features["is_correct"] == 0
+        assert features["time_spent"] == 60.0
+        assert features["current_mastery"] == 0.7
+
+    def test_build_ml_features_falls_back_to_correctness_when_score_missing(self):
+        interaction = SimpleNamespace(
+            is_correct=True,
+            time_spent=240.0,
+            question=SimpleNamespace(),
+        )
+        student_context = DummyStudentContext(
+            history=[interaction],
+            recent_history=None,
+        )
+
+        features = self.service.build_ml_features(
+            student_context=student_context,
+            subject_id=2,
+            topic_id=1102,
+        )
+
+        assert features["score"] == 1.0
+        assert features["normalized_time"] == 1.0
+        assert features["question_difficulty"] == 0.5
+
+    def test_interaction_helpers_return_defaults_for_none(self):
+        assert self.service._score_for_interaction(None) == 0.5
+        assert self.service._time_for_interaction(None) == 60.0

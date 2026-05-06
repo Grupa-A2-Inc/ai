@@ -1,6 +1,6 @@
 import json
 import logging
-from urllib.error import HTTPError, URLError
+from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 from django.conf import settings
@@ -85,7 +85,7 @@ class LLMQuestionGenerationService:
         try:
             with urlopen(request, timeout=self.REQUEST_TIMEOUT_SECONDS) as response:
                 response_body = response.read().decode("utf-8")
-        except (HTTPError, URLError, TimeoutError, ValueError) as exc:
+        except (URLError, TimeoutError, ValueError) as exc:
             logger.exception("Local LLM API request failed")
             raise LLMQuestionGenerationUnavailableError(
                 "Local LLM API request failed."
@@ -158,7 +158,7 @@ class LLMQuestionGenerationService:
             return text
 
         lines = text.splitlines()
-        if not lines:
+        if not lines:  # pragma: no cover
             return text
 
         if lines[0].startswith("```"):
