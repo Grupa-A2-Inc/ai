@@ -1,16 +1,22 @@
+from tutoring.dto import mastery_result
 from tutoring.repositories.student_data_repository import StudentDataRepository
 from tutoring.services.feature_engineering_service import FeatureEngineeringService
 from tutoring.services.mastery_estimator import MasteryEstimator
 from tutoring.services.difficulty_estimator import DifficultyEstimator
 from tutoring.services.question_selection_engine import QuestionSelectionEngine
 from tutoring.dto.recommandation_result import QuestionRecommendationResult
-
+from tutoring.services.mastery_strategy_selector import MasteryStrategySelector
+from tutoring.services.ml_mastery_estimator import MLMasteryEstimator
 
 class QuestionRecommendationEngine:
     def __init__(self):
         self.repository = StudentDataRepository()
         self.feature_service = FeatureEngineeringService()
-        self.mastery_estimator = MasteryEstimator()
+
+        self.rule_based_mastery_estimator = MasteryEstimator()
+        self.ml_mastery_estimator = MLMasteryEstimator()
+        self.strategy_selector = MasteryStrategySelector()
+
         self.difficulty_estimator = DifficultyEstimator()
         self.selection_engine = QuestionSelectionEngine()
 
@@ -31,7 +37,29 @@ class QuestionRecommendationEngine:
 
         normalized_features = self.feature_service.normalize(raw_features)
 
-        mastery_result = self.mastery_estimator.estimate(normalized_features)
+        attempt_count = normalized_features.get("attempt_count_on_topic", 0)
+
+        strategy = self.strategy_selector.select(normalized_features)
+
+        mastery_result = None
+
+        if attempt_count < 10 or strategy == "rule_based":
+            mastery_result = self.rule_based_mastery_estimator.estimate(
+                normalized_features
+            )
+        else:
+            try:
+                mastery_result = self.ml_mastery_estimator.estimate(
+                    normalized_features
+                )
+            except Exception:
+                mastery_result = self.rule_based_mastery_estimator.estimate(
+                    normalized_features
+                )
+        if mastery_result is None:
+            mastery_result = self.rule_based_mastery_estimator.estimate(
+                normalized_features
+            )
 
         difficulty_result = self.difficulty_estimator.estimate(
             mastery_result.mastery_score
