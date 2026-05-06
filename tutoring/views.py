@@ -17,6 +17,10 @@ from tutoring.serializers import RecommendationRequestSerializer
 from tutoring.serializers import RecommendationResponseSerializer
 from tutoring.services.recommendation_engine import QuestionRecommendationEngine
 from tutoring.serializers import AdaptiveFeedbackRequestSerializer
+from tutoring.serializers import (
+    GenerateQuestionsRequestSerializer,
+    GenerateQuestionsResponseSerializer,
+)
 from tutoring.services.feedback_service import (
     FeedbackService,
     StudentNotFoundError as FeedbackStudentNotFoundError,
@@ -37,6 +41,11 @@ from tutoring.services.adaptive_exercise_service import (
     StudentNotFoundError as AdaptiveExerciseStudentNotFoundError,
 )
 from tutoring.services.curriculum_catalog_service import CurriculumCatalogService
+from tutoring.services.llm_question_generation_service import (
+    LLMQuestionGenerationInvalidResponseError,
+    LLMQuestionGenerationService,
+    LLMQuestionGenerationUnavailableError,
+)
 
 logger = logging.getLogger(__name__)
 INVALID_API_KEY_MESSAGE = "Invalid API key"
@@ -478,6 +487,111 @@ class CurriculumCatalogView(APIView):
         )
 
         response_serializer = CurriculumCatalogResponseSerializer(data=catalog)
+        response_serializer.is_valid(raise_exception=True)
+
+        return Response(
+            response_serializer.validated_data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class GenerateQuestionsView(APIView):
+    permission_classes = [HasValidApiKey]
+
+    @extend_schema(
+        operation_id="generateQuestions",
+        tags=["LLM Generation"],
+        summary="Generează întrebări dintr-o lecție",
+        description=(
+            "Primește conținutul complet al unei lecții și numărul de întrebări "
+            "care trebuie generate. Serviciul construiește promptul pentru LLM-ul local, "
+            "apelează LLM-ul, parsează JSON-ul rezultat și întoarce întrebările "
+            "validate în formatul standard."
+        ),
+        parameters=[API_KEY_HEADER],
+        request=GenerateQuestionsRequestSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=GenerateQuestionsResponseSerializer,
+                description="Întrebări generate cu succes.",
+            ),
+            400: OpenApiResponse(description="Request invalid."),
+            403: OpenApiResponse(description="X-Api-Key lipsă sau invalid."),
+            502: OpenApiResponse(
+                response=ErrorResponseSerializer,
+                description="LLM-ul a returnat un răspuns invalid.",
+            ),
+            503: OpenApiResponse(
+                response=ErrorResponseSerializer,
+                description="LLM-ul nu este disponibil.",
+            ),
+        },
+        examples=[
+            OpenApiExample(
+                "Cerere generare întrebări",
+                value={
+                    "content": "Lecție despre ecuații de gradul al doilea...",
+                    "count": 5,
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                "Răspuns generare întrebări",
+                value={
+                    "questions": [
+                        {
+                            "text": "Care este forma generală a ecuației de gradul al doilea?",
+                            "type": "SINGLE_CHOICE",
+                            "answers": [
+                                "ax² + bx + c = 0",
+                                "ax + b = 0",
+                                "a/x + b = 0",
+                                "x + y = 0",
+                            ],
+                            "correctAnswers": ["ax² + bx + c = 0"],
+                            "difficulty": 0.4,
+                        }
+                    ]
+                },
+                response_only=True,
+            ),
+        ],
+    )
+    def post(self, request):
+        api_key = request.headers.get("X-Api-Key")
+        if api_key != settings.EXTERNAL_API_KEY:
+            raise PermissionDenied(INVALID_API_KEY_MESSAGE)
+
+        serializer = GenerateQuestionsRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        service = LLMQuestionGenerationService()
+
+        try:
+            questions = service.generate(
+                content=serializer.validated_data["content"],
+                count=serializer.validated_data["count"],
+            )
+        except LLMQuestionGenerationUnavailableError:
+            return Response(
+                {"error": "Serviciul LLM nu este disponibil."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except LLMQuestionGenerationInvalidResponseError:
+            return Response(
+                {"error": "LLM-ul a returnat un răspuns invalid."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        except Exception:
+            logger.exception("Unexpected error while generating questions")
+            return Response(
+                {"error": "Serviciul de generare întrebări nu este disponibil."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        response_serializer = GenerateQuestionsResponseSerializer(
+            data={"questions": questions}
+        )
         response_serializer.is_valid(raise_exception=True)
 
         return Response(

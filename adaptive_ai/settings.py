@@ -57,6 +57,8 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 EXTERNAL_API_KEY = os.getenv("EXTERNAL_API_KEY", "")
+LLM_URL = os.getenv("LLM_URL", "http://localhost:11434/api/generate")
+LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:3b-instruct")
 
 
 # Application definition
