@@ -121,3 +121,26 @@ class MasteryModelTrainerTests(TestCase):
             self.assertIn("best_model", result)
             self.assertIn("metrics", result)
             self.assertIn("all_results", result)
+
+    def test_validate_dataset_rejects_missing_columns(self):
+        trainer = MasteryModelTrainer()
+
+        with self.assertRaises(ValueError) as context:
+            trainer._validate_dataset(pd.DataFrame({"subject_id": [1]}))
+
+        self.assertIn("Dataset is missing required columns", str(context.exception))
+
+    def test_validate_dataset_rejects_empty_dataset(self):
+        trainer = MasteryModelTrainer()
+        dataset = pd.DataFrame(columns=[
+            *MasteryModelTrainer.FEATURE_COLUMNS,
+            MasteryModelTrainer.TARGET_COLUMN,
+        ])
+
+        with self.assertRaises(ValueError) as context:
+            trainer._validate_dataset(dataset)
+
+        self.assertEqual(
+            str(context.exception),
+            "Dataset is empty. Cannot train ML model.",
+        )

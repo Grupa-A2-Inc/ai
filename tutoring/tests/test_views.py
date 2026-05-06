@@ -14,10 +14,15 @@ from tutoring.services.feedback_service import (
     QuestionNotFoundError,
     StudentNotFoundError as FeedbackStudentNotFoundError,
 )
+from tutoring.services.llm_question_generation_service import (
+    LLMQuestionGenerationInvalidResponseError,
+    LLMQuestionGenerationUnavailableError,
+)
 from tutoring.views import (
     AdaptiveExercisesView,
     AdaptiveFeedbackView,
     CurriculumCatalogView,
+    GenerateQuestionsView,
     RecommendQuestionView,
     StudentSyncView,
 )
@@ -411,3 +416,86 @@ class ViewCoverageTests(APITestCase):
 
         self.assertEqual(response.status_code, 500)
         self.assertEqual(response.data, {"ack": False})
+
+    def test_generate_questions_rejects_invalid_api_key_in_view(self):
+        assert_invalid_api_key_is_rejected(GenerateQuestionsView)
+
+    @patch("tutoring.views.LLMQuestionGenerationService")
+    def test_generate_questions_returns_generated_questions(self, service_class):
+        generated_question = {
+            "text": "Question?",
+            "type": "SINGLE_CHOICE",
+            "answers": ["A", "B", "C", "D"],
+            "correctAnswers": ["A"],
+            "difficulty": 0.5,
+        }
+        service_class.return_value.generate.return_value = [generated_question]
+
+        response = self.client.post(
+            reverse("generate-questions"),
+            {"content": "Lesson", "count": 1},
+            format="json",
+            HTTP_X_API_KEY="test-secret",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, {"questions": [generated_question]})
+        service_class.return_value.generate.assert_called_once_with(
+            content="Lesson",
+            count=1,
+        )
+
+    @patch("tutoring.views.LLMQuestionGenerationService")
+    def test_generate_questions_returns_503_for_unavailable_llm(self, service_class):
+        service_class.return_value.generate.side_effect = (
+            LLMQuestionGenerationUnavailableError()
+        )
+
+        response = self.client.post(
+            reverse("generate-questions"),
+            {"content": "Lesson", "count": 1},
+            format="json",
+            HTTP_X_API_KEY="test-secret",
+        )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.data,
+            {"error": "Serviciul LLM nu este disponibil."},
+        )
+
+    @patch("tutoring.views.LLMQuestionGenerationService")
+    def test_generate_questions_returns_502_for_invalid_llm_response(self, service_class):
+        service_class.return_value.generate.side_effect = (
+            LLMQuestionGenerationInvalidResponseError()
+        )
+
+        response = self.client.post(
+            reverse("generate-questions"),
+            {"content": "Lesson", "count": 1},
+            format="json",
+            HTTP_X_API_KEY="test-secret",
+        )
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(
+            response.data,
+            {"error": "LLM-ul a returnat un răspuns invalid."},
+        )
+
+    @patch("tutoring.views.LLMQuestionGenerationService")
+    def test_generate_questions_returns_503_for_unexpected_error(self, service_class):
+        service_class.return_value.generate.side_effect = RuntimeError()
+
+        response = self.client.post(
+            reverse("generate-questions"),
+            {"content": "Lesson", "count": 1},
+            format="json",
+            HTTP_X_API_KEY="test-secret",
+        )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.data,
+            {"error": "Serviciul de generare întrebări nu este disponibil."},
+        )
