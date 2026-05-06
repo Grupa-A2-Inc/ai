@@ -1,4 +1,3 @@
-from tutoring.dto import mastery_result
 from tutoring.repositories.student_data_repository import StudentDataRepository
 from tutoring.services.feature_engineering_service import FeatureEngineeringService
 from tutoring.services.mastery_estimator import MasteryEstimator
@@ -37,26 +36,23 @@ class QuestionRecommendationEngine:
 
         normalized_features = self.feature_service.normalize(raw_features)
 
-        attempt_count = normalized_features.get("attempt_count_on_topic", 0)
-
         strategy = self.strategy_selector.select(normalized_features)
 
-        mastery_result = None
-
-        if attempt_count < 10 or strategy == "rule_based":
-            mastery_result = self.rule_based_mastery_estimator.estimate(
-                normalized_features
-            )
-        else:
+        if strategy == "ml":
             try:
+                ml_features = self.feature_service.build_ml_features(
+                    student_context=student_context,
+                    subject_id=subject_id,
+                    topic_id=topic_id,
+                )
                 mastery_result = self.ml_mastery_estimator.estimate(
-                    normalized_features
+                    ml_features
                 )
             except Exception:
                 mastery_result = self.rule_based_mastery_estimator.estimate(
                     normalized_features
                 )
-        if mastery_result is None:
+        else:
             mastery_result = self.rule_based_mastery_estimator.estimate(
                 normalized_features
             )
