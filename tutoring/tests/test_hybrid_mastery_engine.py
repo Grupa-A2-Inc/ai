@@ -1,106 +1,120 @@
-from unittest.mock import patch, MagicMock
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
 from django.test import TestCase
 
+from tutoring.dto.mastery_result import MasteryResult
 from tutoring.services.recommendation_engine import QuestionRecommendationEngine
 
 
+class FakeRepository:
+    def __init__(self, student_context):
+        self.student_context = student_context
+
+    def build_student_context(self, user_id: int, subject_id: int, topic_id: int):
+        return self.student_context
+
+
 class HybridMasteryEngineTests(TestCase):
+    def _build_engine(self, history):
+        engine = QuestionRecommendationEngine()
+        engine.repository = FakeRepository(
+            SimpleNamespace(
+                history=history,
+                recent_history=history[-5:],
+                seen_question_ids=[],
+                candidate_questions=[
+                    SimpleNamespace(
+                        id=1,
+                        subject_id=2,
+                        topic_id=1102,
+                        difficulty=0.5,
+                    )
+                ],
+                topic_mastery_score=0.6,
+            )
+        )
+        return engine
 
-    def setUp(self):
-        self.engine = QuestionRecommendationEngine()
+    def _interaction(self, score=1.0, time_spent=40.0, difficulty=0.5):
+        return SimpleNamespace(
+            is_correct=score == 1.0,
+            score=score,
+            time_spent=time_spent,
+            question=SimpleNamespace(difficulty=difficulty),
+        )
 
-        # 🔥 FIX GLOBAL: selection engine trebuie să returneze mereu o întrebare
-        self.engine.selection_engine.select = MagicMock(return_value=MagicMock(
-            id=1,
-            subject_id=2,
-            topic_id=1102,
-            difficulty=0.5
-        ))
+    def test_rule_based_used_for_low_interactions(self):
+        engine = self._build_engine(
+            [self._interaction() for _ in range(5)]
+        )
+        engine.rule_based_mastery_estimator.estimate = MagicMock(
+            return_value=MasteryResult(mastery_score=0.5)
+        )
+        engine.strategy_selector.model_path = Path("missing-model.pkl")
+        engine.ml_mastery_estimator.estimate = MagicMock()
 
-    @patch("tutoring.services.recommendation_engine.StudentDataRepository")
-    def test_rule_based_used_for_low_interactions(self, mock_repository):
+        result = engine.recommend(1, 2, 1102)
 
-        mock_context = MagicMock()
-        mock_context.seen_question_ids = []
-        mock_context.candidate_questions = [
-            MagicMock(id=1, subject_id=2, topic_id=1102, difficulty=0.5)
-        ]
-        mock_repository.return_value.build_student_context.return_value = mock_context
+        self.assertIsNotNone(result)
+        engine.rule_based_mastery_estimator.estimate.assert_called_once()
+        engine.ml_mastery_estimator.estimate.assert_not_called()
 
-        with patch.object(self.engine.feature_service, "build_features", return_value={
-            "attempt_count_on_topic": 5
-        }), patch.object(self.engine.feature_service, "normalize", return_value={
-            "attempt_count_on_topic": 5
-        }), patch.object(self.engine.rule_based_mastery_estimator, "estimate") as rule_mock:
+    def test_rule_based_used_for_high_interactions_when_model_is_missing(self):
+        engine = self._build_engine(
+            [self._interaction() for _ in range(10)]
+        )
+        engine.rule_based_mastery_estimator.estimate = MagicMock(
+            return_value=MasteryResult(mastery_score=0.5)
+        )
+        engine.ml_mastery_estimator.estimate = MagicMock()
+        engine.strategy_selector.model_path = Path("missing-model.pkl")
 
-            rule_mock.return_value = MagicMock(mastery_score=0.5)
+        result = engine.recommend(1, 2, 1102)
 
-            result = self.engine.recommend(1, 2, 1102)
+        self.assertIsNotNone(result)
+        engine.rule_based_mastery_estimator.estimate.assert_called_once()
+        engine.ml_mastery_estimator.estimate.assert_not_called()
 
-            assert result is not None
-            rule_mock.assert_called_once()
+    def test_ml_used_for_high_interactions_when_strategy_selects_ml(self):
+        engine = self._build_engine(
+            [self._interaction(score=1.0, difficulty=0.7) for _ in range(12)]
+        )
+        engine.strategy_selector.select = MagicMock(return_value="ml")
+        engine.ml_mastery_estimator.estimate = MagicMock(
+            return_value=MasteryResult(mastery_score=0.8)
+        )
+        engine.rule_based_mastery_estimator.estimate = MagicMock(
+            return_value=MasteryResult(mastery_score=0.4)
+        )
 
-    @patch("tutoring.services.recommendation_engine.StudentDataRepository")
-    def test_ml_used_for_high_interactions(self, mock_repository):
+        result = engine.recommend(1, 2, 1102)
 
-        mock_context = MagicMock()
-        mock_context.seen_question_ids = []
-        mock_context.candidate_questions = [
-            MagicMock(id=1, subject_id=2, topic_id=1102, difficulty=0.5)
-        ]
-        mock_repository.return_value.build_student_context.return_value = mock_context
+        self.assertIsNotNone(result)
+        engine.ml_mastery_estimator.estimate.assert_called_once()
+        engine.rule_based_mastery_estimator.estimate.assert_not_called()
 
-        features = {
-            "attempt_count_on_topic": 15,
-            "subject_id": 2,
-            "topic_id": 1102,
-            "question_difficulty": 0.5,
-            "score": 1.0,
-            "is_correct": 1,
-            "time_spent": 40,
-            "normalized_time": 0.3,
-            "average_score_on_topic": 0.7,
-            "average_time_on_topic": 50,
-            "normalized_average_time": 0.4,
-            "recent_average_score": 0.7,
-            "recent_average_time": 50,
-            "normalized_recent_time": 0.4,
-            "current_mastery": 0.6,
-        }
+        ml_features = engine.ml_mastery_estimator.estimate.call_args.args[0]
+        self.assertEqual(ml_features["attempt_count_on_topic"], 12)
+        self.assertEqual(ml_features["subject_id"], 2)
+        self.assertEqual(ml_features["topic_id"], 1102)
+        self.assertEqual(ml_features["question_difficulty"], 0.7)
 
-        with patch.object(self.engine.feature_service, "build_features", return_value=features), \
-             patch.object(self.engine.feature_service, "normalize", return_value=features), \
-             patch.object(self.engine.strategy_selector, "select", return_value="ml"), \
-             patch.object(self.engine.ml_mastery_estimator, "estimate") as ml_mock:
+    def test_fallback_to_rule_based_if_ml_fails(self):
+        engine = self._build_engine(
+            [self._interaction() for _ in range(12)]
+        )
+        engine.strategy_selector.select = MagicMock(return_value="ml")
+        engine.ml_mastery_estimator.estimate = MagicMock(
+            side_effect=Exception("ML crash")
+        )
+        engine.rule_based_mastery_estimator.estimate = MagicMock(
+            return_value=MasteryResult(mastery_score=0.4)
+        )
 
-            ml_mock.return_value = MagicMock(mastery_score=0.8)
+        result = engine.recommend(1, 2, 1102)
 
-            result = self.engine.recommend(1, 2, 1102)
-
-            assert result is not None
-            ml_mock.assert_called_once()
-
-    @patch("tutoring.services.recommendation_engine.StudentDataRepository")
-    def test_fallback_to_rule_based_if_ml_fails(self, mock_repository):
-
-        mock_context = MagicMock()
-        mock_context.seen_question_ids = []
-        mock_context.candidate_questions = [
-            MagicMock(id=1, subject_id=2, topic_id=1102, difficulty=0.5)
-        ]
-        mock_repository.return_value.build_student_context.return_value = mock_context
-
-        features = {"attempt_count_on_topic": 15}
-
-        with patch.object(self.engine.feature_service, "build_features", return_value=features), \
-             patch.object(self.engine.feature_service, "normalize", return_value=features), \
-             patch.object(self.engine.strategy_selector, "select", return_value="ml"), \
-             patch.object(self.engine.ml_mastery_estimator, "estimate", side_effect=Exception("ML crash")), \
-             patch.object(self.engine.rule_based_mastery_estimator, "estimate") as rule_mock:
-
-            rule_mock.return_value = MagicMock(mastery_score=0.4)
-
-            result = self.engine.recommend(1, 2, 1102)
-
-            assert result is not None
-            rule_mock.assert_called_once()
+        self.assertIsNotNone(result)
+        engine.ml_mastery_estimator.estimate.assert_called_once()
+        engine.rule_based_mastery_estimator.estimate.assert_called_once()

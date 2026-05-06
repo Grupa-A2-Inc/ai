@@ -8,7 +8,10 @@ class MasteryStrategySelector:
         self.model_path = Path("tutoring/models_store/mastery_model.pkl")
 
     def select(self, features):
-        attempt_count = features["attempt_count_on_topic"]
+        attempt_count = getattr(features, "attempt_count", None)
+
+        if attempt_count is None:
+            attempt_count = features["attempt_count_on_topic"]
 
         if attempt_count < self.MIN_INTERACTIONS:
             return "rule_based"

@@ -9,12 +9,15 @@ from tutoring.services.feature_engineering_service import FeatureEngineeringServ
 class DummyInteraction:
     is_correct: bool
     time_spent: float
+    score: float = 0.0
+    question: object = None
 
 
 @dataclass
 class DummyStudentContext:
     history: List[DummyInteraction]
     topic_mastery_score: float = 0.5
+    recent_history: List[DummyInteraction] = None
 
 
 class TestFeatureEngineeringService:
@@ -81,3 +84,49 @@ class TestFeatureEngineeringService:
         assert features.accuracy == 0.0
         assert features.avg_time == 20.0
         assert features.attempt_count == 2
+
+    def test_build_ml_features_matches_training_columns(self):
+        question = type("Question", (), {"difficulty": 0.7})()
+        history = [
+            DummyInteraction(
+                is_correct=True,
+                score=1.0,
+                time_spent=30.0,
+                question=question,
+            ),
+            DummyInteraction(
+                is_correct=False,
+                score=0.0,
+                time_spent=90.0,
+                question=question,
+            ),
+        ]
+        student_context = DummyStudentContext(
+            history=history,
+            recent_history=history,
+            topic_mastery_score=0.65,
+        )
+
+        features = self.service.build_ml_features(
+            student_context=student_context,
+            subject_id=2,
+            topic_id=1102,
+        )
+
+        assert features == {
+            "subject_id": 2,
+            "topic_id": 1102,
+            "question_difficulty": 0.7,
+            "score": 0.0,
+            "is_correct": 0,
+            "time_spent": 90.0,
+            "normalized_time": 0.75,
+            "attempt_count_on_topic": 2,
+            "average_score_on_topic": 0.5,
+            "average_time_on_topic": 60.0,
+            "normalized_average_time": 0.5,
+            "recent_average_score": 0.5,
+            "recent_average_time": 60.0,
+            "normalized_recent_time": 0.5,
+            "current_mastery": 0.65,
+        }
