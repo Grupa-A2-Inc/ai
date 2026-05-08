@@ -25,5 +25,7 @@ class QuestionGenerationPromptService:
             "- Do not return markdown.\n"
             "- Do not return explanations.\n"
             "- Use only the lesson content.\n\n"
+            "- Write the questions in the Romanian language.\n\n"
+            "- VERY IMPORTANT : DO NOT HALLUCINATE !\n\n"
             f"Lesson content:\n{lesson_content}\n"
         )

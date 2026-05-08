@@ -6,6 +6,7 @@ from tutoring.services.question_selection_engine import QuestionSelectionEngine
 from tutoring.dto.recommandation_result import QuestionRecommendationResult
 from tutoring.services.mastery_strategy_selector import MasteryStrategySelector
 from tutoring.services.ml_mastery_estimator import MLMasteryEstimator
+from tutoring.dto.recommendation_context import RecommendationContext
 
 class QuestionRecommendationEngine:
     def __init__(self):
@@ -26,6 +27,39 @@ class QuestionRecommendationEngine:
         topic_id: int,
         excluded_question_ids=None,
     ):
+        recommendation_context = self.build_recommendation_context(
+            user_id=user_id,
+            subject_id=subject_id,
+            topic_id=topic_id,
+            excluded_question_ids=excluded_question_ids,
+        )
+
+        student_context = recommendation_context.student_context
+
+        selected_question = self.selection_engine.select(
+            candidate_questions=student_context.candidate_questions,
+            target_difficulty=recommendation_context.target_difficulty,
+            seen_question_ids=recommendation_context.seen_question_ids,
+        )
+
+        if selected_question is None:
+            return None
+
+        return QuestionRecommendationResult(
+            question_id=selected_question.id,
+            subject_id=selected_question.subject_id,
+            topic_id=selected_question.topic_id,
+            difficulty=selected_question.difficulty,
+            source="selection",
+        )
+
+    def build_recommendation_context(
+        self,
+        user_id: int,
+        subject_id: int,
+        topic_id: int,
+        excluded_question_ids=None,
+    ) -> RecommendationContext:
         student_context = self.repository.build_student_context(
             user_id=user_id,
             subject_id=subject_id,
@@ -37,14 +71,14 @@ class QuestionRecommendationEngine:
         normalized_features = self.feature_service.normalize(raw_features)
 
         strategy = self.strategy_selector.select(normalized_features)
+        ml_features = self.feature_service.build_ml_features(
+            student_context=student_context,
+            subject_id=subject_id,
+            topic_id=topic_id,
+        )
 
         if strategy == "ml":
             try:
-                ml_features = self.feature_service.build_ml_features(
-                    student_context=student_context,
-                    subject_id=subject_id,
-                    topic_id=topic_id,
-                )
                 mastery_result = self.ml_mastery_estimator.estimate(
                     ml_features
                 )
@@ -64,21 +98,14 @@ class QuestionRecommendationEngine:
         seen_question_ids = set(student_context.seen_question_ids)
         seen_question_ids.update(excluded_question_ids or [])
 
-        selected_question = self.selection_engine.select(
-            candidate_questions=student_context.candidate_questions,
+        return RecommendationContext(
+            student_context=student_context,
+            mastery_score=mastery_result.mastery_score,
             target_difficulty=difficulty_result.target_difficulty,
             seen_question_ids=seen_question_ids,
-        )
-
-        if selected_question is None:
-            return None
-
-        return QuestionRecommendationResult(
-            question_id=selected_question.id,
-            subject_id=selected_question.subject_id,
-            topic_id=selected_question.topic_id,
-            difficulty=selected_question.difficulty,
-            source="selection",
+            normalized_features=normalized_features,
+            ml_features=ml_features,
+            strategy=strategy,
         )
 '''
 @Ionut
