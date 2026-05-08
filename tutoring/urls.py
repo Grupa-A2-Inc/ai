@@ -5,8 +5,6 @@ from .views import AdaptiveFeedbackView
 from tutoring.views import AdaptiveExercisesView, CurriculumCatalogView, GenerateQuestionsView
 
 urlpatterns = [
-   # path("recommend/", RecommendQuestionView.as_view(), name="recommend-question"),
-   #path("api/generate", GenerateQuestionsView.as_view(), name="generate-questions"),
     path("api/v1/students", StudentSyncView.as_view(), name="student-sync"),
     path("api/v1/adaptive/feedback",AdaptiveFeedbackView.as_view(), name="adaptive-feedback"),
     path("api/v1/adaptive/exercises", AdaptiveExercisesView.as_view(), name="adaptive-exercises"),

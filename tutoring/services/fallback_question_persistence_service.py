@@ -31,6 +31,12 @@ class FallbackQuestionPersistenceService:
             option_by_text[answer] = option
 
         for correct_answer in question_payload["correctAnswers"]:
+            if correct_answer not in option_by_text:
+                raise ValueError(
+                    "Correct answer is missing from generated answers: "
+                    f"{correct_answer!r}. Payload: {question_payload!r}"
+                )
+
             QuestionCorrectOption.objects.create(
                 question=question,
                 option=option_by_text[correct_answer],

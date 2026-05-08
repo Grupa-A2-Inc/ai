@@ -33,21 +33,25 @@ class LLMFallbackQuestionService:
         topic_id: int,
         recommendation_context,
     ):
-        target_difficulty = recommendation_context.target_difficulty
-        prompt = self.prompt_service.build_prompt(
-            subject_id=subject_id,
-            topic_id=topic_id,
-            target_difficulty=target_difficulty,
-            mastery_score=recommendation_context.mastery_score,
-            student_features=recommendation_context.ml_features,
-            example_questions=self._example_questions(
-                recommendation_context=recommendation_context,
+        try:
+            target_difficulty = recommendation_context.target_difficulty
+            prompt = self.prompt_service.build_prompt(
+                subject_id=subject_id,
+                topic_id=topic_id,
                 target_difficulty=target_difficulty,
-            ),
-            avoid_question_texts=self._avoid_question_texts(
-                recommendation_context.student_context
-            ),
-        )
+                mastery_score=recommendation_context.mastery_score,
+                student_features=recommendation_context.ml_features,
+                example_questions=self._example_questions(
+                    recommendation_context=recommendation_context,
+                    target_difficulty=target_difficulty,
+                ),
+                avoid_question_texts=self._avoid_question_texts(
+                    recommendation_context.student_context
+                ),
+            )
+        except Exception:
+            logger.exception("Fallback question prompt assembly failed")
+            return None
 
         try:
             questions = self.generation_service.generate_from_prompt(
@@ -61,18 +65,23 @@ class LLMFallbackQuestionService:
             logger.exception("Unexpected fallback question generation error")
             return None
 
+        if not questions:
+            logger.error("LLM fallback returned no questions. Prompt: %s", prompt)
+            return None
+
         question_payload = questions[0]
-        question_payload["difficulty"] = self._clamp_to_target(
+        calibrated_difficulty = self._clamp_to_target(
             question_payload.get("difficulty"),
             target_difficulty,
         )
+        question_payload["difficulty"] = calibrated_difficulty
 
         try:
             return self.persistence_service.save_question(
                 question_payload=question_payload,
                 subject_id=subject_id,
                 topic_id=topic_id,
-                difficulty=target_difficulty,
+                difficulty=calibrated_difficulty,
             )
         except Exception:
             logger.exception("Generated fallback question could not be saved")
@@ -83,7 +92,7 @@ class LLMFallbackQuestionService:
         recommendation_context,
         target_difficulty: float,
     ) -> list[dict]:
-        seen_ids = set(recommendation_context.seen_question_ids)
+        seen_ids = set(recommendation_context.seen_question_ids or [])
         questions = [
             question
             for question in recommendation_context.student_context.candidate_questions
