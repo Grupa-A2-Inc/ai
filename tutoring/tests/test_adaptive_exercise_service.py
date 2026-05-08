@@ -1,8 +1,14 @@
 from types import SimpleNamespace
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
-from tutoring.models import Question, QuestionType, StudentProfile
+from tutoring.models import (
+    Question,
+    QuestionCorrectOption,
+    QuestionOption,
+    QuestionType,
+    StudentProfile,
+)
 from tutoring.services.adaptive_exercise_service import (
     AdaptiveExerciseService,
     StudentNotFoundError,
@@ -156,3 +162,72 @@ class AdaptiveExerciseServiceTests(TestCase):
                 },
             ],
         )
+
+    @override_settings(LLM_FALLBACK_ENABLED=True)
+    def test_generate_exercises_uses_llm_fallback_when_engine_returns_none(self):
+        StudentProfile.objects.create(student_id="student-1", is_active=True)
+        recommendation_context = SimpleNamespace(target_difficulty=0.6)
+
+        class EngineWithoutQuestion:
+            def recommend(
+                self,
+                user_id,
+                subject_id,
+                topic_id,
+                excluded_question_ids=None,
+            ):
+                return None
+
+            def build_recommendation_context(
+                self,
+                user_id,
+                subject_id,
+                topic_id,
+                excluded_question_ids=None,
+            ):
+                return recommendation_context
+
+        class FallbackService:
+            def generate_and_save(
+                self,
+                subject_id,
+                topic_id,
+                recommendation_context,
+            ):
+                question = Question.objects.create(
+                    subject_id=subject_id,
+                    topic_id=topic_id,
+                    question_type=QuestionType.SINGLE_CHOICE,
+                    content="Generated fallback question",
+                    difficulty=recommendation_context.target_difficulty,
+                )
+                correct_option = QuestionOption.objects.create(
+                    question=question,
+                    text="Correct",
+                    display_order=1,
+                )
+                QuestionOption.objects.create(
+                    question=question,
+                    text="Wrong",
+                    display_order=2,
+                )
+                QuestionCorrectOption.objects.create(
+                    question=question,
+                    option=correct_option,
+                )
+                return question
+
+        service = AdaptiveExerciseService()
+        service.engine = EngineWithoutQuestion()
+        service.fallback_service = FallbackService()
+
+        exercises = service.generate_exercises(
+            student_id="student-1",
+            subject_id=2,
+            topic_id=1102,
+            count=1,
+        )
+
+        self.assertEqual(len(exercises), 1)
+        self.assertEqual(exercises[0]["text"], "Generated fallback question")
+        self.assertEqual(exercises[0]["difficulty"], 0.6)
