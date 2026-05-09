@@ -20,6 +20,8 @@ from tutoring.serializers import AdaptiveFeedbackRequestSerializer
 from tutoring.serializers import (
     GenerateQuestionsRequestSerializer,
     GenerateQuestionsResponseSerializer,
+    CustomerSupportChatRequestSerializer,
+    CustomerSupportChatResponseSerializer,
 )
 from tutoring.services.feedback_service import (
     FeedbackService,
@@ -492,6 +494,91 @@ class CurriculumCatalogView(APIView):
         return Response(
             response_serializer.validated_data,
             status=status.HTTP_200_OK,
+        )
+
+
+class CustomerSupportChatView(APIView):
+    permission_classes = [HasValidApiKey]
+
+    @extend_schema(
+        operation_id="customerSupportChat",
+        tags=["Chatbots"],
+        summary="Răspunde la întrebări de customer support",
+        description=(
+            "Documentează contractul pentru viitorul chatbot de customer support. "
+            "Request-ul va primi mesajul curent al utilizatorului, ultimele mesaje "
+            "din conversația păstrată în frontend și contextul paginii curente. "
+            "Implementarea efectivă a apelului către LLM/Ollama urmează."
+        ),
+        parameters=[API_KEY_HEADER],
+        request=CustomerSupportChatRequestSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=CustomerSupportChatResponseSerializer,
+                description="Răspuns generat cu succes.",
+            ),
+            400: OpenApiResponse(description="Request invalid."),
+            403: OpenApiResponse(description="X-API-Key lipsă sau invalid."),
+            502: OpenApiResponse(
+                response=ErrorResponseSerializer,
+                description="LLM-ul a returnat un răspuns invalid sau gol.",
+            ),
+            503: OpenApiResponse(
+                response=ErrorResponseSerializer,
+                description="Serviciul de chat nu este disponibil.",
+            ),
+            501: OpenApiResponse(
+                response=ErrorResponseSerializer,
+                description="Endpoint documentat în Swagger, implementarea urmează.",
+            ),
+        },
+        examples=[
+            OpenApiExample(
+                "Cerere customer support",
+                value={
+                    "message": "Nu îmi apare progresul la matematică.",
+                    "history": [
+                        {
+                            "role": "user",
+                            "content": "Unde văd progresul meu?",
+                        },
+                        {
+                            "role": "assistant",
+                            "content": (
+                                "Îl poți vedea în pagina de profil sau "
+                                "în secțiunea de progres."
+                            ),
+                        },
+                    ],
+                    "context": {
+                        "page": "student-dashboard",
+                        "userType": "student",
+                    },
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                "Răspuns customer support",
+                value={
+                    "answer": (
+                        "Dacă ești în dashboard, verifică secțiunea Progres. "
+                        "Dacă nu apare matematica, asigură-te că ai rezolvat "
+                        "cel puțin un exercițiu la acea materie."
+                    ),
+                    "chatbot": "customer_support",
+                },
+                response_only=True,
+            ),
+        ],
+    )
+    def post(self, request):
+        api_key = request.headers.get("X-API-Key")
+        if api_key != settings.EXTERNAL_API_KEY:
+            raise PermissionDenied(INVALID_API_KEY_MESSAGE)
+
+        return Response(
+            {"error": "Endpointul de customer support chat nu este implementat încă."},
+            status=status.HTTP_501_NOT_IMPLEMENTED,
         )
 
 
