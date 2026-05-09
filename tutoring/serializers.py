@@ -133,3 +133,46 @@ class GenerateQuestionsRequestSerializer(serializers.Serializer):
 
 class GenerateQuestionsResponseSerializer(serializers.Serializer):
     questions = GeneratedQuestionSerializer(many=True)
+
+
+class ChatHistoryMessageSerializer(serializers.Serializer):
+    role = serializers.ChoiceField(choices=["user", "assistant"])
+    content = serializers.CharField(
+        allow_blank=False,
+        trim_whitespace=True,
+        max_length=4000,
+    )
+
+
+class CustomerSupportChatRequestSerializer(serializers.Serializer):
+    message = serializers.CharField(
+        allow_blank=False,
+        trim_whitespace=True,
+        max_length=4000,
+    )
+    history = ChatHistoryMessageSerializer(
+        many=True,
+        required=False,
+        default=list,
+    )
+    context = serializers.JSONField(
+        required=False,
+        default=dict,
+    )
+
+    def validate_history(self, value):
+        if len(value) > 10:
+            raise serializers.ValidationError(
+                "History can contain at most 10 messages."
+            )
+        return value
+
+    def validate_context(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("Context must be a JSON object.")
+        return value
+
+
+class CustomerSupportChatResponseSerializer(serializers.Serializer):
+    answer = serializers.CharField(allow_blank=False, trim_whitespace=True)
+    chatbot = serializers.ChoiceField(choices=["customer_support"])

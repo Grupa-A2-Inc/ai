@@ -22,6 +22,7 @@ from tutoring.views import (
     AdaptiveExercisesView,
     AdaptiveFeedbackView,
     CurriculumCatalogView,
+    CustomerSupportChatView,
     GenerateQuestionsView,
     RecommendQuestionView,
     StudentSyncView,
@@ -50,8 +51,46 @@ class ViewCoverageTests(APITestCase):
     def setUp(self):
         self.factory = APIRequestFactory()
 
+    def test_openapi_schema_documents_customer_support_chat(self):
+        response = self.client.get(
+            reverse("schema"),
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            "/ai/api/v1/chat/customer-support",
+            response.data["paths"],
+        )
+        operation = response.data["paths"][
+            "/ai/api/v1/chat/customer-support"
+        ]["post"]
+        self.assertEqual(operation["operationId"], "customerSupportChat")
+        self.assertEqual(operation["tags"], ["Chatbots"])
+
     def test_adaptive_exercises_rejects_invalid_api_key_in_view(self):
         assert_invalid_api_key_is_rejected(AdaptiveExercisesView)
+
+    def test_customer_support_chat_rejects_invalid_api_key_in_view(self):
+        assert_invalid_api_key_is_rejected(CustomerSupportChatView)
+
+    def test_customer_support_chat_is_documented_only_not_implemented(self):
+        response = self.client.post(
+            reverse("customer-support-chat"),
+            {
+                "message": "Nu îmi apare progresul.",
+                "history": [],
+                "context": {"page": "dashboard"},
+            },
+            format="json",
+            HTTP_X_API_KEY="test-secret",
+        )
+
+        self.assertEqual(response.status_code, 501)
+        self.assertEqual(
+            response.data,
+            {"error": "Endpointul de customer support chat nu este implementat încă."},
+        )
 
     @patch("tutoring.views.AdaptiveExerciseService")
     def test_adaptive_exercises_returns_serialized_exercises(self, service_class):
