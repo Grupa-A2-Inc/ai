@@ -4,6 +4,7 @@ from unittest.mock import patch
 from urllib.error import URLError
 
 import pytest
+from django.test import override_settings
 
 from tutoring.services.llm_question_generation_service import (
     LLMQuestionGenerationInvalidResponseError,
@@ -125,6 +126,7 @@ def test_extract_local_response_text_rejects_missing_text():
 
 
 @patch("tutoring.services.llm_question_generation_service.urlopen")
+@override_settings(LLM_URL="http://ollama:11434/api/generate")
 def test_call_local_llm_posts_prompt_and_extracts_response(urlopen):
     urlopen.return_value = ResponseContext(json.dumps({"response": " generated "}))
     service = LLMQuestionGenerationService(transport=lambda prompt: "")
@@ -132,6 +134,7 @@ def test_call_local_llm_posts_prompt_and_extracts_response(urlopen):
     assert service._call_local_llm("prompt") == "generated"
     request = urlopen.call_args.args[0]
     assert request.method == "POST"
+    assert request.full_url == "http://ollama:11434/api/generate"
     assert json.loads(request.data.decode("utf-8"))["prompt"] == "prompt"
 
 
