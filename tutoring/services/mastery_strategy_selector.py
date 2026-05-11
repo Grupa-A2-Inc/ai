@@ -1,11 +1,16 @@
+import os
 from pathlib import Path
 
 
 class MasteryStrategySelector:
     MIN_INTERACTIONS = 10
+    DEFAULT_MODEL_PATH = "tutoring/models_store/mastery_model.pkl"
 
     def __init__(self):
-        self.model_path = Path("tutoring/models_store/mastery_model.pkl")
+        self.model_path = Path(
+            os.getenv("MASTERY_MODEL_PATH")
+            or self.DEFAULT_MODEL_PATH
+        )
 
     def select(self, features):
         attempt_count = getattr(features, "attempt_count", None)

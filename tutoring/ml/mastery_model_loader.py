@@ -1,14 +1,21 @@
+import os
 from pathlib import Path
 
 import joblib
 
 
 class MasteryModelLoader:
+    DEFAULT_MODEL_PATH = "tutoring/models_store/mastery_model.pkl"
+
     def __init__(
         self,
-        model_path: str = "tutoring/models_store/mastery_model.pkl",
+        model_path: str | None = None,
     ):
-        self.model_path = Path(model_path)
+        self.model_path = Path(
+            model_path
+            or os.getenv("MASTERY_MODEL_PATH")
+            or self.DEFAULT_MODEL_PATH
+        )
         self._model = None
 
     def load(self):

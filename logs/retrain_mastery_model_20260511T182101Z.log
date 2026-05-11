@@ -1,0 +1,9 @@
+[2026-05-11T18:21:01Z] Starting mastery model retraining
+[2026-05-11T18:21:01Z] APP_DIR=/home/idorando/Facultate/adaptive_ai/ai
+[2026-05-11T18:21:01Z] PYTHON_BIN=/home/idorando/Facultate/adaptive_ai/ai/.venv/bin/python
+[2026-05-11T18:21:01Z] DATASET_PATH=/home/idorando/Facultate/adaptive_ai/ai/data/training/student_mastery_dataset.csv
+[2026-05-11T18:21:01Z] MASTERY_MODEL_PATH=/tmp/server_mastery_model.pkl
+[2026-05-11T18:21:01Z] Exporting training dataset from StudentInteraction
+Training dataset exported successfully to /home/idorando/Facultate/adaptive_ai/ai/data/training/.student_mastery_dataset_20260511T182101Z.tmp.csv
+[2026-05-11T18:21:04Z] Exported dataset rows: 0
+[2026-05-11T18:21:04Z] ERROR: Dataset has 0 rows, below MIN_ROWS=100. Keeping existing model.
