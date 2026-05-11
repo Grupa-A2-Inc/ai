@@ -57,8 +57,10 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 EXTERNAL_API_KEY = os.getenv("EXTERNAL_API_KEY", "")
-LLM_URL = os.getenv("LLM_URL", "http://localhost:11434/api/generate")
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+LLM_URL = os.getenv("LLM_URL", f"{OLLAMA_BASE_URL.rstrip('/')}/api/generate")
 LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:3b-instruct")
+LLM_FALLBACK_ENABLED = _env_bool("LLM_FALLBACK_ENABLED", default=not TESTING)
 
 
 # Application definition

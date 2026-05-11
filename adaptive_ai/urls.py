@@ -18,7 +18,6 @@ def health(request):
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('health/', health),
-    path('api/generate', GenerateQuestionsView.as_view()),
     path('ai/', include('tutoring.urls')),
 
     # OpenAPI schema
