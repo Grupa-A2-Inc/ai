@@ -9,7 +9,8 @@ APP_DIR="${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 PYTHON_BIN="${PYTHON_BIN:-$APP_DIR/.venv/bin/python}"
 
 DATASET_PATH="${DATASET_PATH:-$APP_DIR/data/training/student_mastery_dataset.csv}"
-MODEL_PATH="${MODEL_PATH:-$APP_DIR/tutoring/models_store/mastery_model.pkl}"
+MODEL_PATH="${MASTERY_MODEL_PATH:-${MODEL_PATH:-$APP_DIR/tutoring/models_store/mastery_model.pkl}}"
+export MASTERY_MODEL_PATH="$MODEL_PATH"
 MIN_ROWS="${MIN_ROWS:-100}"
 
 RUN_DIR="${RUN_DIR:-$APP_DIR/tmp/model_training}"
@@ -24,6 +25,7 @@ DATASET_DIR="$(dirname "$DATASET_PATH")"
 MODEL_DIR="$(dirname "$MODEL_PATH")"
 TMP_DATASET="$DATASET_DIR/.student_mastery_dataset_$TIMESTAMP.tmp.csv"
 TMP_MODEL="$MODEL_DIR/.mastery_model_$TIMESTAMP.tmp.pkl"
+PUBLISHED=0
 
 log() {
     printf '[%s] %s\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" "$*"
@@ -33,6 +35,14 @@ fail() {
     log "ERROR: $*"
     exit 1
 }
+
+cleanup() {
+    if [[ "$PUBLISHED" != "1" ]]; then
+        rm -f "$TMP_DATASET" "$TMP_MODEL"
+    fi
+}
+
+trap cleanup EXIT
 
 exec > >(tee -a "$LOG_FILE") 2>&1
 exec 9>"$LOCK_FILE"
@@ -48,7 +58,7 @@ log "Starting mastery model retraining"
 log "APP_DIR=$APP_DIR"
 log "PYTHON_BIN=$PYTHON_BIN"
 log "DATASET_PATH=$DATASET_PATH"
-log "MODEL_PATH=$MODEL_PATH"
+log "MASTERY_MODEL_PATH=$MASTERY_MODEL_PATH"
 
 [[ -x "$PYTHON_BIN" ]] || fail "Python executable not found or not executable: $PYTHON_BIN"
 
@@ -103,5 +113,6 @@ print(f"Validation prediction: {prediction:.4f}")
 log "Publishing new dataset and model atomically"
 mv "$TMP_DATASET" "$DATASET_PATH"
 mv "$TMP_MODEL" "$MODEL_PATH"
+PUBLISHED=1
 
 log "Mastery model retraining completed successfully"

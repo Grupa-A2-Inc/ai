@@ -1,3 +1,5 @@
+import os
+
 from django.core.management.base import BaseCommand
 
 from tutoring.ml.train_mastery_model import MasteryModelTrainer
@@ -16,7 +18,10 @@ class Command(BaseCommand):
         parser.add_argument(
             "--output",
             type=str,
-            default="tutoring/models_store/mastery_model.pkl",
+            default=(
+                os.getenv("MASTERY_MODEL_PATH")
+                or "tutoring/models_store/mastery_model.pkl"
+            ),
         )
 
     def handle(self, *args, **options):

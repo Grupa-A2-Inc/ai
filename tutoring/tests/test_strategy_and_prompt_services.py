@@ -1,5 +1,6 @@
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from tutoring.services.mastery_strategy_selector import MasteryStrategySelector
 from tutoring.services.question_generation_prompt_service import (
@@ -22,6 +23,17 @@ def test_strategy_selector_returns_ml_when_model_exists(tmp_path):
     result = selector.select(SimpleNamespace(attempt_count=10))
 
     assert result == "ml"
+
+
+def test_strategy_selector_uses_mastery_model_path_env_var(tmp_path):
+    model_path = tmp_path / "model.pkl"
+    model_path.write_bytes(b"model")
+
+    with patch.dict("os.environ", {"MASTERY_MODEL_PATH": str(model_path)}):
+        selector = MasteryStrategySelector()
+
+    assert selector.model_path == model_path
+    assert selector.select(SimpleNamespace(attempt_count=10)) == "ml"
 
 
 def test_question_generation_prompt_contains_trimmed_content_and_count():

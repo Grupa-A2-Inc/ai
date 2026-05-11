@@ -1,4 +1,5 @@
 from pathlib import Path
+from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
@@ -50,6 +51,12 @@ class MasteryModelArtifactTests(SimpleTestCase):
         self.assertIsNotNone(first_model)
         self.assertIs(first_model, second_model)
         self.assertTrue(hasattr(first_model, "predict"))
+
+    def test_loader_uses_mastery_model_path_env_var(self):
+        with patch.dict("os.environ", {"MASTERY_MODEL_PATH": str(MODEL_PATH)}):
+            loader = MasteryModelLoader()
+
+        self.assertEqual(loader.model_path, MODEL_PATH)
 
     def test_loader_returns_none_when_model_file_is_missing(self):
         loader = MasteryModelLoader(model_path="missing-model.pkl")
