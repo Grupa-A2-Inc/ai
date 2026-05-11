@@ -1,0 +1,19 @@
+[run]
+omit =
+    */asgi.py
+    */wsgi.py
+    */settings.py
+    */scripts/*
+    */management/*
+    */venv/*
+    */.venv/*
+    */__pycache__/*
+    */migrations/*
+    */static/*
+    */media/*
+    */tests/*
+    */test/*
+    */*test*.py
+
+[report]
+show_missing = True

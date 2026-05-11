@@ -17,11 +17,13 @@ RUN pip install --no-cache-dir -r requirements.txt \
 COPY manage.py .
 COPY adaptive_ai ./adaptive_ai
 COPY tutoring ./tutoring
+COPY scripts ./scripts
 
-RUN chmod -R a-w manage.py adaptive_ai tutoring
+RUN chmod +x scripts/retrain_mastery_model.sh \
+    && chmod -R a-w manage.py adaptive_ai tutoring scripts
 
 EXPOSE 8000
 
 USER appuser
 
-CMD ["sh", "-c", "python manage.py migrate && gunicorn adaptive_ai.wsgi:application --bind 0.0.0.0:8000"]
+CMD ["sh", "-c", "python manage.py migrate && gunicorn adaptive_ai.wsgi:application --bind 0.0.0.0:8000 --timeout 6000 --workers 1"]
