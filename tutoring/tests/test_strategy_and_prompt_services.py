@@ -44,3 +44,4 @@ def test_question_generation_prompt_contains_trimmed_content_and_count():
 
     assert "Generate exactly 3 questions" in prompt
     assert "Lesson content:\nlesson content" in prompt
+    assert "text field must contain only the question statement" in prompt
