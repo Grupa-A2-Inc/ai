@@ -19,6 +19,8 @@ class QuestionGenerationPromptService:
             "}\n\n"
             f"Rules:\n"
             f"- Generate exactly {count} questions.\n"
+            "- The text field must contain only the question statement, without "
+            "the correct answer or any hint that reveals it.\n"
             "- Each question must have 4 answer options.\n"
             "- correctAnswers must contain only values from answers.\n"
             "- difficulty must be between 0.0 and 1.0.\n"
