@@ -53,6 +53,38 @@ def test_generate_uses_prompt_service_and_transport():
     assert questions == VALID_PAYLOAD["questions"]
 
 
+def test_generate_repairs_invalid_first_response():
+    prompts = []
+    responses = iter(
+        [
+            json.dumps(
+                {
+                    "questions": [
+                        {
+                            **VALID_PAYLOAD["questions"][0],
+                            "correctAnswers": ["Z"],
+                        }
+                    ]
+                }
+            ),
+            json.dumps(VALID_PAYLOAD),
+        ]
+    )
+
+    def transport(prompt):
+        prompts.append(prompt)
+        return next(responses)
+
+    service = LLMQuestionGenerationService(transport=transport)
+
+    questions = service.generate_from_prompt("prompt", expected_count=1)
+
+    assert questions == VALID_PAYLOAD["questions"]
+    assert len(prompts) == 2
+    assert "Repair it into valid JSON" in prompts[1]
+    assert "\"questions\" must contain exactly 1 items" in prompts[1]
+
+
 def test_generate_rejects_invalid_schema():
     service = LLMQuestionGenerationService(
         transport=lambda prompt: json.dumps(
@@ -135,7 +167,9 @@ def test_call_local_llm_posts_prompt_and_extracts_response(urlopen):
     request = urlopen.call_args.args[0]
     assert request.method == "POST"
     assert request.full_url == "http://ollama:11434/api/generate"
-    assert json.loads(request.data.decode("utf-8"))["prompt"] == "prompt"
+    request_payload = json.loads(request.data.decode("utf-8"))
+    assert request_payload["prompt"] == "prompt"
+    assert request_payload["options"]["temperature"] == 0.1
 
 
 @patch("tutoring.services.llm_question_generation_service.urlopen")
