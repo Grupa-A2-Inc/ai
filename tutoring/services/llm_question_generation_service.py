@@ -28,6 +28,8 @@ class LLMQuestionGenerationInvalidResponseError(LLMQuestionGenerationError):
 
 class LLMQuestionGenerationService:
     REQUEST_TIMEOUT_SECONDS = 60
+    MAX_REPAIR_RESPONSE_LENGTH = 8000
+    MAX_REPAIR_ORIGINAL_PROMPT_LENGTH = 12000
 
     def __init__(self, prompt_service=None, transport=None):
         self.prompt_service = prompt_service or QuestionGenerationPromptService()
@@ -42,9 +44,46 @@ class LLMQuestionGenerationService:
         prompt: str,
         expected_count: int | None = None,
     ) -> list[dict]:
+        try:
+            return self._generate_from_prompt_once(
+                prompt=prompt,
+                expected_count=expected_count,
+            )
+        except LLMQuestionGenerationInvalidResponseError as first_error:
+            raw_response = getattr(first_error, "raw_response", "")
+            repair_prompt = self._build_repair_prompt(
+                original_prompt=prompt,
+                invalid_response=raw_response,
+                validation_error=str(first_error),
+                expected_count=expected_count,
+            )
+            try:
+                return self._generate_from_prompt_once(
+                    prompt=repair_prompt,
+                    expected_count=expected_count,
+                )
+            except LLMQuestionGenerationInvalidResponseError as second_error:
+                raise second_error from first_error
+
+    def _generate_from_prompt_once(
+        self,
+        prompt: str,
+        expected_count: int | None = None,
+    ) -> list[dict]:
         raw_response = self.transport(prompt)
         response_text = self._extract_response_text(raw_response)
-        payload = self._parse_json_payload(response_text)
+        try:
+            payload = self._parse_json_payload(response_text)
+            return self._validate_payload(payload, expected_count=expected_count)
+        except LLMQuestionGenerationInvalidResponseError as exc:
+            exc.raw_response = response_text
+            raise
+
+    def _validate_payload(
+        self,
+        payload: dict,
+        expected_count: int | None = None,
+    ) -> list[dict]:
 
         serializer = GenerateQuestionsResponseSerializer(data=payload)
         try:
@@ -62,6 +101,50 @@ class LLMQuestionGenerationService:
 
         return questions
 
+    def _build_repair_prompt(
+        self,
+        original_prompt: str,
+        invalid_response: str,
+        validation_error: str,
+        expected_count: int | None = None,
+    ) -> str:
+        expected_count_rule = ""
+        if expected_count is not None:
+            expected_count_rule = (
+                f"- \"questions\" must contain exactly {expected_count} items.\n"
+            )
+
+        truncated_response = invalid_response[: self.MAX_REPAIR_RESPONSE_LENGTH]
+        truncated_original_prompt = original_prompt[
+            : self.MAX_REPAIR_ORIGINAL_PROMPT_LENGTH
+        ]
+
+        return (
+            "You returned an invalid response for a question generation API.\n"
+            "Repair it into valid JSON that matches this exact contract.\n\n"
+            "Original generation prompt:\n"
+            f"{truncated_original_prompt}\n\n"
+            "Validation error:\n"
+            f"{validation_error}\n\n"
+            "Invalid response:\n"
+            f"{truncated_response}\n\n"
+            "Required JSON contract:\n"
+            "- Return a single JSON object and nothing else.\n"
+            "- The top-level object must contain exactly one key: \"questions\".\n"
+            f"{expected_count_rule}"
+            "- Every question object must contain exactly these keys: "
+            "\"text\", \"type\", \"answers\", \"correctAnswers\", \"difficulty\".\n"
+            "- \"type\" must be exactly \"SINGLE_CHOICE\" or \"MULTIPLE_CHOICE\".\n"
+            "- \"answers\" must contain exactly 4 non-empty strings.\n"
+            "- \"correctAnswers\" must contain exact string copies from \"answers\".\n"
+            "- For SINGLE_CHOICE, \"correctAnswers\" must contain exactly 1 item.\n"
+            "- For MULTIPLE_CHOICE, \"correctAnswers\" must contain at least 2 items.\n"
+            "- \"difficulty\" must be a JSON number between 0.0 and 1.0.\n"
+            "- The \"text\" field must not reveal or include the correct answer.\n"
+            "- Do not include markdown, comments, explanations, trailing commas, "
+            "or text outside JSON.\n"
+        )
+
     def _call_local_llm(self, prompt: str) -> str:
         url = getattr(settings, "LLM_URL", "http://localhost:11434/api/generate")
         model = getattr(settings, "LLM_MODEL", "qwen2.5:3b-instruct")
@@ -70,7 +153,7 @@ class LLMQuestionGenerationService:
             "prompt": prompt,
             "stream": False,
             "options": {
-                "temperature": 0.2,
+                "temperature": 0.1,
                 "top_p": 0.95,
             },
         }
