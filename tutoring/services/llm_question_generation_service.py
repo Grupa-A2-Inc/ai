@@ -32,7 +32,7 @@ class LLMQuestionGenerationService:
     MAX_REPAIR_RESPONSE_LENGTH = 8000
     MAX_REPAIR_ORIGINAL_PROMPT_LENGTH = 12000
 
-    def __init__(self, prompt_service=None, transport=None):
+    def __init__(self, prompt_service=None, transport=None, provider=None):
         self.prompt_service = prompt_service or QuestionGenerationPromptService()
         self.transport = transport or self._call_configured_llm
         self.request_timeout_seconds = getattr(
@@ -46,7 +46,11 @@ class LLMQuestionGenerationService:
             "LLM_AUDIT_TIME_BUDGET_SECONDS",
             45,
         )
-        self.provider = getattr(settings, "LLM_PROVIDER", "ollama").strip().lower()
+        self.provider = (
+            provider
+            if provider is not None
+            else getattr(settings, "LLM_PROVIDER", "ollama")
+        ).strip().lower()
 
     def generate(self, content: str, count: int = 5) -> list[dict]:
         prompt = self.prompt_service.build_prompt(content=content, count=count)
@@ -56,27 +60,32 @@ class LLMQuestionGenerationService:
         self,
         prompt: str,
         expected_count: int | None = None,
+        default_difficulty: float | None = None,
     ) -> list[dict]:
         started_at = time.monotonic()
         questions = self._generate_valid_questions_with_repair(
             prompt=prompt,
             expected_count=expected_count,
+            default_difficulty=default_difficulty,
         )
         return self._audit_questions(
             questions=questions,
             expected_count=expected_count,
             started_at=started_at,
+            default_difficulty=default_difficulty,
         )
 
     def _generate_valid_questions_with_repair(
         self,
         prompt: str,
         expected_count: int | None = None,
+        default_difficulty: float | None = None,
     ) -> list[dict]:
         try:
             return self._generate_from_prompt_once(
                 prompt=prompt,
                 expected_count=expected_count,
+                default_difficulty=default_difficulty,
             )
         except LLMQuestionGenerationInvalidResponseError as first_error:
             raw_response = getattr(first_error, "raw_response", "")
@@ -90,6 +99,7 @@ class LLMQuestionGenerationService:
                 return self._generate_from_prompt_once(
                     prompt=repair_prompt,
                     expected_count=expected_count,
+                    default_difficulty=default_difficulty,
                 )
             except LLMQuestionGenerationInvalidResponseError as second_error:
                 raise second_error from first_error
@@ -99,6 +109,7 @@ class LLMQuestionGenerationService:
         questions: list[dict],
         expected_count: int | None = None,
         started_at: float | None = None,
+        default_difficulty: float | None = None,
     ) -> list[dict]:
         if not self.audit_enabled:
             return questions
@@ -121,6 +132,7 @@ class LLMQuestionGenerationService:
             return self._generate_valid_questions_with_repair(
                 prompt=audit_prompt,
                 expected_count=expected_count,
+                default_difficulty=default_difficulty,
             )
         except LLMQuestionGenerationInvalidResponseError:
             logger.exception("LLM question audit returned an invalid response")
@@ -170,15 +182,37 @@ class LLMQuestionGenerationService:
         self,
         prompt: str,
         expected_count: int | None = None,
+        default_difficulty: float | None = None,
     ) -> list[dict]:
         raw_response = self.transport(prompt)
         response_text = self._extract_response_text(raw_response)
         try:
             payload = self._parse_json_payload(response_text)
+            self._apply_default_difficulty(
+                payload=payload,
+                default_difficulty=default_difficulty,
+            )
             return self._validate_payload(payload, expected_count=expected_count)
         except LLMQuestionGenerationInvalidResponseError as exc:
             exc.raw_response = response_text
+            logger.warning("Invalid LLM response text: %s", response_text[:2000])
             raise
+
+    def _apply_default_difficulty(
+        self,
+        payload: dict,
+        default_difficulty: float | None,
+    ) -> None:
+        if default_difficulty is None:
+            return
+
+        questions = payload.get("questions")
+        if not isinstance(questions, list):
+            return
+
+        for question in questions:
+            if isinstance(question, dict) and "difficulty" not in question:
+                question["difficulty"] = default_difficulty
 
     def _validate_payload(
         self,
@@ -190,12 +224,18 @@ class LLMQuestionGenerationService:
         try:
             serializer.is_valid(raise_exception=True)
         except serializers.ValidationError as exc:
+            logger.warning("LLM response schema errors: %s", exc.detail)
             raise LLMQuestionGenerationInvalidResponseError(
                 "LLM response does not match the expected question schema."
             ) from exc
 
         questions = serializer.validated_data["questions"]
         if expected_count is not None and len(questions) != expected_count:
+            logger.warning(
+                "LLM returned %s questions, expected %s.",
+                len(questions),
+                expected_count,
+            )
             raise LLMQuestionGenerationInvalidResponseError(
                 f"LLM returned {len(questions)} questions, expected {expected_count}."
             )

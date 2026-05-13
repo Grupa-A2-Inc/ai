@@ -68,6 +68,7 @@ CSRF_TRUSTED_ORIGINS = [
 
 EXTERNAL_API_KEY = os.getenv("EXTERNAL_API_KEY", "")
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama").strip().lower()
+LLM_FALLBACK_PROVIDER = os.getenv("LLM_FALLBACK_PROVIDER", "ollama").strip().lower()
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 LLM_URL = os.getenv("LLM_URL", f"{OLLAMA_BASE_URL.rstrip('/')}/api/generate")
 LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:3b-instruct")
