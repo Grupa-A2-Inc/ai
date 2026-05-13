@@ -1,5 +1,7 @@
 import logging
 
+from django.conf import settings
+
 from tutoring.services.fallback_question_persistence_service import (
     FallbackQuestionPersistenceService,
 )
@@ -22,7 +24,10 @@ class LLMFallbackQuestionService:
         persistence_service=None,
     ):
         self.prompt_service = prompt_service or FallbackQuestionPromptService()
-        self.generation_service = generation_service or LLMQuestionGenerationService()
+        fallback_provider = getattr(settings, "LLM_FALLBACK_PROVIDER", "ollama")
+        self.generation_service = generation_service or LLMQuestionGenerationService(
+            provider=fallback_provider
+        )
         self.persistence_service = (
             persistence_service or FallbackQuestionPersistenceService()
         )
@@ -57,6 +62,7 @@ class LLMFallbackQuestionService:
             questions = self.generation_service.generate_from_prompt(
                 prompt=prompt,
                 expected_count=1,
+                default_difficulty=target_difficulty,
             )
         except LLMQuestionGenerationError:
             logger.exception("LLM fallback question generation failed")
@@ -70,6 +76,9 @@ class LLMFallbackQuestionService:
             return None
 
         question_payload = questions[0]
+        if "difficulty" not in question_payload:
+            question_payload["difficulty"] = target_difficulty
+
         calibrated_difficulty = self._clamp_to_target(
             question_payload.get("difficulty"),
             target_difficulty,

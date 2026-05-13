@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from tutoring.models import Question, QuestionType
 from tutoring.services.fallback_question_persistence_service import (
@@ -29,6 +29,12 @@ class FallbackQuestionPromptServiceTests(TestCase):
 
 
 class LLMFallbackQuestionServiceTests(TestCase):
+    @override_settings(LLM_PROVIDER="gemini", LLM_FALLBACK_PROVIDER="ollama")
+    def test_default_generation_service_uses_fallback_provider(self):
+        service = LLMFallbackQuestionService()
+
+        self.assertEqual(service.generation_service.provider, "ollama")
+
     def test_generate_and_save_uses_target_difficulty_and_persists_question(self):
         generated_payload = {
             "text": "Cât este x dacă 2x = 6?",
@@ -39,7 +45,12 @@ class LLMFallbackQuestionServiceTests(TestCase):
         }
 
         class GenerationService:
-            def generate_from_prompt(self, prompt, expected_count=None):
+            def generate_from_prompt(
+                self,
+                prompt,
+                expected_count=None,
+                default_difficulty=None,
+            ):
                 return [generated_payload]
 
         context = SimpleNamespace(
@@ -71,6 +82,50 @@ class LLMFallbackQuestionServiceTests(TestCase):
         self.assertEqual(question.correct_options.count(), 1)
         self.assertEqual(question.ml_exercise_id, f"ai-{question.id}")
 
+    def test_generate_and_save_passes_target_difficulty_as_default(self):
+        captured = {}
+        generated_payload = {
+            "text": "Cât este x dacă 2x = 6?",
+            "type": "SINGLE_CHOICE",
+            "answers": ["1", "2", "3", "4"],
+            "correctAnswers": ["3"],
+        }
+
+        class GenerationService:
+            def generate_from_prompt(
+                self,
+                prompt,
+                expected_count=None,
+                default_difficulty=None,
+            ):
+                captured["default_difficulty"] = default_difficulty
+                generated_payload["difficulty"] = default_difficulty
+                return [generated_payload]
+
+        context = SimpleNamespace(
+            target_difficulty=0.6,
+            mastery_score=0.5,
+            ml_features={"attempt_count_on_topic": 3},
+            seen_question_ids=set(),
+            student_context=SimpleNamespace(
+                candidate_questions=[],
+                recent_history=[],
+                history=[],
+            ),
+        )
+
+        question = LLMFallbackQuestionService(
+            generation_service=GenerationService()
+        ).generate_and_save(
+            subject_id=2,
+            topic_id=1102,
+            recommendation_context=context,
+        )
+
+        self.assertIsNotNone(question)
+        self.assertEqual(captured["default_difficulty"], 0.6)
+        self.assertEqual(question.difficulty, 0.6)
+
     def test_generate_and_save_returns_none_when_prompt_context_is_invalid(self):
         service = LLMFallbackQuestionService()
 
@@ -85,7 +140,12 @@ class LLMFallbackQuestionServiceTests(TestCase):
 
     def test_generate_and_save_returns_none_when_llm_returns_no_questions(self):
         class GenerationService:
-            def generate_from_prompt(self, prompt, expected_count=None):
+            def generate_from_prompt(
+                self,
+                prompt,
+                expected_count=None,
+                default_difficulty=None,
+            ):
                 return []
 
         context = SimpleNamespace(

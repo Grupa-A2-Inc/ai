@@ -69,6 +69,13 @@ def test_generate_uses_prompt_service_and_transport():
     assert questions == VALID_PAYLOAD["questions"]
 
 
+@override_settings(LLM_PROVIDER="gemini")
+def test_provider_argument_overrides_global_provider():
+    service = LLMQuestionGenerationService(provider="ollama")
+
+    assert service.provider == "ollama"
+
+
 @override_settings(LLM_AUDIT_ENABLED=True)
 def test_generate_repairs_invalid_first_response():
     prompts = []
@@ -167,6 +174,28 @@ def test_generate_rejects_invalid_schema():
 
     with pytest.raises(LLMQuestionGenerationInvalidResponseError):
         service.generate_from_prompt("prompt")
+
+
+def test_generate_applies_default_difficulty_when_missing():
+    payload = {
+        "questions": [
+            {
+                "text": "Question?",
+                "type": "SINGLE_CHOICE",
+                "answers": ["A", "B", "C", "D"],
+                "correctAnswers": ["A"],
+            }
+        ]
+    }
+    service = LLMQuestionGenerationService(transport=lambda prompt: json.dumps(payload))
+
+    questions = service.generate_from_prompt(
+        "prompt",
+        expected_count=1,
+        default_difficulty=0.6,
+    )
+
+    assert questions[0]["difficulty"] == 0.6
 
 
 def test_generate_rejects_unexpected_count():
