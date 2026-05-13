@@ -27,7 +27,7 @@ class LLMQuestionGenerationInvalidResponseError(LLMQuestionGenerationError):
 
 
 class LLMQuestionGenerationService:
-    REQUEST_TIMEOUT_SECONDS = 60
+    REQUEST_TIMEOUT_SECONDS = 6000
     MAX_REPAIR_RESPONSE_LENGTH = 8000
     MAX_REPAIR_ORIGINAL_PROMPT_LENGTH = 12000
 
