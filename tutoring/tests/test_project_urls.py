@@ -51,3 +51,17 @@ class HealthEndpointTests(SimpleTestCase):
 
         self.assertEqual(response.status_code, 204)
         self.assertNotIn("Access-Control-Allow-Origin", response)
+
+    def test_cors_preflight_allows_default_vercel_frontend_origin(self):
+        response = self.client.options(
+            "/ai/api/v1/chat/customer-support",
+            HTTP_ORIGIN="https://frontend-teal-five-57.vercel.app",
+            HTTP_ACCESS_CONTROL_REQUEST_METHOD="POST",
+            HTTP_ACCESS_CONTROL_REQUEST_HEADERS="content-type,x-api-key",
+        )
+
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(
+            response["Access-Control-Allow-Origin"],
+            "https://frontend-teal-five-57.vercel.app",
+        )

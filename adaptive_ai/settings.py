@@ -66,11 +66,23 @@ CSRF_TRUSTED_ORIGINS = [
     if origin.strip()
 ]
 
-CORS_ALLOWED_ORIGINS = [
-    origin.strip()
-    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
-    if origin.strip()
-]
+DEFAULT_CORS_ALLOWED_ORIGINS = (
+    "https://frontend-teal-five-57.vercel.app,"
+    "https://adaptiveelearning.online,"
+    "https://www.adaptiveelearning.online"
+)
+
+CORS_ALLOWED_ORIGINS = sorted(
+    {
+        origin.strip().rstrip("/")
+        for origin in (
+            DEFAULT_CORS_ALLOWED_ORIGINS
+            + ","
+            + os.getenv("CORS_ALLOWED_ORIGINS", "")
+        ).split(",")
+        if origin.strip()
+    }
+)
 
 EXTERNAL_API_KEY = os.getenv("EXTERNAL_API_KEY", "")
 AI_API_KEY = os.getenv("AI_API_KEY", "")
