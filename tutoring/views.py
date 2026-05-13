@@ -43,6 +43,11 @@ from tutoring.services.adaptive_exercise_service import (
     StudentNotFoundError as AdaptiveExerciseStudentNotFoundError,
 )
 from tutoring.services.curriculum_catalog_service import CurriculumCatalogService
+from tutoring.services.customer_support_chat_service import (
+    CustomerSupportChatInvalidResponseError,
+    CustomerSupportChatService,
+    CustomerSupportChatUnavailableError,
+)
 from tutoring.services.llm_question_generation_service import (
     LLMQuestionGenerationInvalidResponseError,
     LLMQuestionGenerationService,
@@ -505,10 +510,8 @@ class CustomerSupportChatView(APIView):
         tags=["Chatbots"],
         summary="Răspunde la întrebări de customer support",
         description=(
-            "Documentează contractul pentru viitorul chatbot de customer support. "
-            "Request-ul va primi mesajul curent al utilizatorului, ultimele mesaje "
-            "din conversația păstrată în frontend și contextul paginii curente. "
-            "Implementarea efectivă a apelului către LLM/Ollama urmează."
+            "Primește mesajul curent al utilizatorului, istoricul conversației și contextul paginii curente. "
+            "Răspunde ca un chatbot de customer support pentru platformă, folosind LLM-ul local configurat."
         ),
         parameters=[API_KEY_HEADER],
         request=CustomerSupportChatRequestSerializer,
@@ -527,9 +530,13 @@ class CustomerSupportChatView(APIView):
                 response=ErrorResponseSerializer,
                 description="Serviciul de chat nu este disponibil.",
             ),
-            501: OpenApiResponse(
+            502: OpenApiResponse(
                 response=ErrorResponseSerializer,
-                description="Endpoint documentat în Swagger, implementarea urmează.",
+                description="LLM-ul a returnat un răspuns invalid sau gol.",
+            ),
+            503: OpenApiResponse(
+                response=ErrorResponseSerializer,
+                description="Serviciul de chat nu este disponibil.",
             ),
         },
         examples=[
@@ -561,9 +568,8 @@ class CustomerSupportChatView(APIView):
                 "Răspuns customer support",
                 value={
                     "answer": (
-                        "Dacă ești în dashboard, verifică secțiunea Progres. "
-                        "Dacă nu apare matematica, asigură-te că ai rezolvat "
-                        "cel puțin un exercițiu la acea materie."
+                        "Verifică secțiunea de progres din dashboard. Dacă nu vezi datele, "
+                        "încearcă să reîncarci pagina sau contactează suportul pentru detalii."
                     ),
                     "chatbot": "customer_support",
                 },
@@ -576,9 +582,36 @@ class CustomerSupportChatView(APIView):
         if api_key != settings.EXTERNAL_API_KEY:
             raise PermissionDenied(INVALID_API_KEY_MESSAGE)
 
+        serializer = CustomerSupportChatRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        service = CustomerSupportChatService()
+
+        try:
+            answer = service.answer(
+                message=serializer.validated_data["message"],
+                history=serializer.validated_data.get("history", []),
+                context=serializer.validated_data.get("context", {}),
+            )
+        except CustomerSupportChatUnavailableError:
+            return Response(
+                {"error": "Serviciul de chat nu este disponibil."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except CustomerSupportChatInvalidResponseError:
+            return Response(
+                {"error": "LLM-ul a returnat un răspuns invalid sau gol."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        response_serializer = CustomerSupportChatResponseSerializer(
+            data={"answer": answer, "chatbot": "customer_support"}
+        )
+        response_serializer.is_valid(raise_exception=True)
+
         return Response(
-            {"error": "Endpointul de customer support chat nu este implementat încă."},
-            status=status.HTTP_501_NOT_IMPLEMENTED,
+            response_serializer.validated_data,
+            status=status.HTTP_200_OK,
         )
 
 

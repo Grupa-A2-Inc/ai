@@ -74,22 +74,42 @@ class ViewCoverageTests(APITestCase):
     def test_customer_support_chat_rejects_invalid_api_key_in_view(self):
         assert_invalid_api_key_is_rejected(CustomerSupportChatView)
 
-    def test_customer_support_chat_is_documented_only_not_implemented(self):
+    @patch("tutoring.views.CustomerSupportChatService")
+    def test_customer_support_chat_returns_answer(self, service_class):
+        service = service_class.return_value
+        service.answer.return_value = (
+            "Verifică secțiunea de progres din dashboard și reîncarcă pagina."
+        )
+
         response = self.client.post(
             reverse("customer-support-chat"),
             {
                 "message": "Nu îmi apare progresul.",
-                "history": [],
-                "context": {"page": "dashboard"},
+                "history": [
+                    {"role": "user", "content": "Unde văd progresul meu?"},
+                    {"role": "assistant", "content": "În pagina de profil."},
+                ],
+                "context": {"page": "dashboard", "userType": "student"},
             },
             format="json",
             HTTP_X_API_KEY="test-secret",
         )
 
-        self.assertEqual(response.status_code, 501)
+        self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.data,
-            {"error": "Endpointul de customer support chat nu este implementat încă."},
+            {
+                "answer": "Verifică secțiunea de progres din dashboard și reîncarcă pagina.",
+                "chatbot": "customer_support",
+            },
+        )
+        service.answer.assert_called_once_with(
+            message="Nu îmi apare progresul.",
+            history=[
+                {"role": "user", "content": "Unde văd progresul meu?"},
+                {"role": "assistant", "content": "În pagina de profil."},
+            ],
+            context={"page": "dashboard", "userType": "student"},
         )
 
     @patch("tutoring.views.AdaptiveExerciseService")
