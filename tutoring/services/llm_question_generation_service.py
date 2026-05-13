@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -27,13 +28,24 @@ class LLMQuestionGenerationInvalidResponseError(LLMQuestionGenerationError):
 
 
 class LLMQuestionGenerationService:
-    REQUEST_TIMEOUT_SECONDS = 6000
+    DEFAULT_REQUEST_TIMEOUT_SECONDS = 35
     MAX_REPAIR_RESPONSE_LENGTH = 8000
     MAX_REPAIR_ORIGINAL_PROMPT_LENGTH = 12000
 
     def __init__(self, prompt_service=None, transport=None):
         self.prompt_service = prompt_service or QuestionGenerationPromptService()
         self.transport = transport or self._call_local_llm
+        self.request_timeout_seconds = getattr(
+            settings,
+            "LLM_REQUEST_TIMEOUT_SECONDS",
+            self.DEFAULT_REQUEST_TIMEOUT_SECONDS,
+        )
+        self.audit_enabled = getattr(settings, "LLM_AUDIT_ENABLED", True)
+        self.audit_time_budget_seconds = getattr(
+            settings,
+            "LLM_AUDIT_TIME_BUDGET_SECONDS",
+            45,
+        )
 
     def generate(self, content: str, count: int = 5) -> list[dict]:
         prompt = self.prompt_service.build_prompt(content=content, count=count)
@@ -44,6 +56,7 @@ class LLMQuestionGenerationService:
         prompt: str,
         expected_count: int | None = None,
     ) -> list[dict]:
+        started_at = time.monotonic()
         questions = self._generate_valid_questions_with_repair(
             prompt=prompt,
             expected_count=expected_count,
@@ -51,6 +64,7 @@ class LLMQuestionGenerationService:
         return self._audit_questions(
             questions=questions,
             expected_count=expected_count,
+            started_at=started_at,
         )
 
     def _generate_valid_questions_with_repair(
@@ -83,7 +97,20 @@ class LLMQuestionGenerationService:
         self,
         questions: list[dict],
         expected_count: int | None = None,
+        started_at: float | None = None,
     ) -> list[dict]:
+        if not self.audit_enabled:
+            return questions
+
+        if started_at is not None:
+            elapsed_seconds = time.monotonic() - started_at
+            if elapsed_seconds >= self.audit_time_budget_seconds:
+                logger.warning(
+                    "Skipping LLM question audit after %.2f seconds",
+                    elapsed_seconds,
+                )
+                return questions
+
         audit_prompt = self._build_audit_prompt(
             questions=questions,
             expected_count=expected_count,
@@ -239,7 +266,7 @@ class LLMQuestionGenerationService:
         )
 
         try:
-            with urlopen(request, timeout=self.REQUEST_TIMEOUT_SECONDS) as response:
+            with urlopen(request, timeout=self.request_timeout_seconds) as response:
                 response_body = response.read().decode("utf-8")
         except (URLError, TimeoutError, ValueError) as exc:
             logger.exception("Local LLM API request failed")

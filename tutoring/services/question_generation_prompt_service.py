@@ -33,6 +33,8 @@ class QuestionGenerationPromptService:
             "- \"difficulty\" must be a JSON number between 0.0 and 1.0, not a string.\n"
             "- Do not include comments, markdown, explanations, trailing commas, "
             "or text outside JSON.\n"
+            "- Before returning, solve each question yourself and make sure "
+            "\"correctAnswers\" contains the truly correct option or options.\n"
             "- Before returning, internally validate that the JSON can be parsed "
             "by JSON.parse and matches every rule above.\n\n"
             f"Rules:\n"

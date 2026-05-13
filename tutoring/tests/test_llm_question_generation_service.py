@@ -53,6 +53,7 @@ def test_generate_uses_prompt_service_and_transport():
     assert questions == VALID_PAYLOAD["questions"]
 
 
+@override_settings(LLM_AUDIT_ENABLED=True)
 def test_generate_repairs_invalid_first_response():
     prompts = []
     responses = iter(
@@ -87,6 +88,7 @@ def test_generate_repairs_invalid_first_response():
     assert "strict educational content validator" in prompts[2]
 
 
+@override_settings(LLM_AUDIT_ENABLED=True)
 def test_generate_audits_and_corrects_valid_payload():
     wrong_payload = {
         "questions": [
@@ -122,6 +124,22 @@ def test_generate_audits_and_corrects_valid_payload():
     assert len(prompts) == 2
     assert "strict educational content validator" in prompts[1]
     assert "Solve the question independently" in prompts[1]
+
+
+@override_settings(LLM_AUDIT_ENABLED=True, LLM_AUDIT_TIME_BUDGET_SECONDS=0)
+def test_generate_skips_audit_when_time_budget_is_exhausted():
+    prompts = []
+
+    def transport(prompt):
+        prompts.append(prompt)
+        return json.dumps(VALID_PAYLOAD)
+
+    service = LLMQuestionGenerationService(transport=transport)
+
+    questions = service.generate_from_prompt("prompt", expected_count=1)
+
+    assert questions == VALID_PAYLOAD["questions"]
+    assert prompts == ["prompt"]
 
 
 def test_generate_rejects_invalid_schema():
@@ -197,7 +215,10 @@ def test_extract_local_response_text_rejects_missing_text():
 
 
 @patch("tutoring.services.llm_question_generation_service.urlopen")
-@override_settings(LLM_URL="http://ollama:11434/api/generate")
+@override_settings(
+    LLM_URL="http://ollama:11434/api/generate",
+    LLM_REQUEST_TIMEOUT_SECONDS=12,
+)
 def test_call_local_llm_posts_prompt_and_extracts_response(urlopen):
     urlopen.return_value = ResponseContext(json.dumps({"response": " generated "}))
     service = LLMQuestionGenerationService(transport=lambda prompt: "")
@@ -209,6 +230,7 @@ def test_call_local_llm_posts_prompt_and_extracts_response(urlopen):
     request_payload = json.loads(request.data.decode("utf-8"))
     assert request_payload["prompt"] == "prompt"
     assert request_payload["options"]["temperature"] == 0.1
+    assert urlopen.call_args.kwargs["timeout"] == 12
 
 
 @patch("tutoring.services.llm_question_generation_service.urlopen")

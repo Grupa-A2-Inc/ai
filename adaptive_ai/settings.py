@@ -29,6 +29,16 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _env_int(name: str, default: int) -> int:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
 load_dotenv(BASE_DIR / ".env")
 
 
@@ -61,6 +71,9 @@ OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 LLM_URL = os.getenv("LLM_URL", f"{OLLAMA_BASE_URL.rstrip('/')}/api/generate")
 LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:3b-instruct")
 LLM_FALLBACK_ENABLED = _env_bool("LLM_FALLBACK_ENABLED", default=not TESTING)
+LLM_REQUEST_TIMEOUT_SECONDS = _env_int("LLM_REQUEST_TIMEOUT_SECONDS", 35)
+LLM_AUDIT_ENABLED = _env_bool("LLM_AUDIT_ENABLED", default=not TESTING)
+LLM_AUDIT_TIME_BUDGET_SECONDS = _env_int("LLM_AUDIT_TIME_BUDGET_SECONDS", 45)
 
 
 # Application definition
