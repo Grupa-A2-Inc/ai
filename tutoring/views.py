@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.conf import settings
 from rest_framework.exceptions import PermissionDenied
+from datetime import datetime
 
 from tutoring.serializers import RecommendationRequestSerializer
 from tutoring.serializers import RecommendationResponseSerializer
@@ -30,6 +31,8 @@ from tutoring.serializers import (
     AdaptiveExercisesResponseSerializer,
     CurriculumCatalogQuerySerializer,
     CurriculumCatalogResponseSerializer,
+    ChatSupportRequestSerializer,
+    ChatSupportResponseSerializer,
 )
 from tutoring.security.api_key_permission import HasValidApiKey
 from tutoring.services.adaptive_exercise_service import (
@@ -37,6 +40,7 @@ from tutoring.services.adaptive_exercise_service import (
     StudentNotFoundError as AdaptiveExerciseStudentNotFoundError,
 )
 from tutoring.services.curriculum_catalog_service import CurriculumCatalogService
+from tutoring.services.chat_support_service import ChatSupportService, ChatServiceError
 
 logger = logging.getLogger(__name__)
 INVALID_API_KEY_MESSAGE = "Invalid API key"
@@ -484,3 +488,108 @@ class CurriculumCatalogView(APIView):
             response_serializer.validated_data,
             status=status.HTTP_200_OK,
         )
+
+
+class ChatSupportView(APIView):
+    """View for handling chat support requests via Ollama LLM."""
+    
+    permission_classes = []  # Allow public access to chat support
+    
+    @extend_schema(
+        operation_id="chatSupport",
+        tags=["Chat Support"],
+        summary="Chat support endpoint powered by Ollama LLM",
+        description=(
+            "Endpoint for student support chat. Uses Ollama with qwen2.5:3b model "
+            "to provide helpful responses to student questions about learning topics."
+        ),
+        request=ChatSupportRequestSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=ChatSupportResponseSerializer,
+                description="Chat response received successfully.",
+            ),
+            400: OpenApiResponse(description="Request invalid."),
+            503: OpenApiResponse(description="Chat service temporarily unavailable."),
+        },
+        examples=[
+            OpenApiExample(
+                "Chat request",
+                value={
+                    "message": "How do I solve quadratic equations?",
+                    "studentId": "student-123",
+                    "topicId": 5,
+                    "context": "Currently studying algebra",
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                "Chat response",
+                value={
+                    "response": "To solve quadratic equations, you can use the quadratic formula...",
+                    "timestamp": "2024-05-13T14:30:00Z",
+                    "model": "qwen2.5:3b",
+                },
+                response_only=True,
+            ),
+        ],
+    )
+    def post(self, request):
+        """Handle chat support POST requests."""
+        serializer = ChatSupportRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        message = serializer.validated_data["message"]
+        student_id = serializer.validated_data.get("studentId")
+        topic_id = serializer.validated_data.get("topicId")
+        context = serializer.validated_data.get("context")
+        language = serializer.validated_data.get("language", "en")
+        
+        # Build additional context if student/topic info is provided
+        full_context = self._build_context(student_id, topic_id, context)
+        
+        try:
+            service = ChatSupportService()
+            response_text = service.chat(message=message, context=full_context, language=language)
+            
+            response_data = {
+                "response": response_text,
+                "timestamp": datetime.now().isoformat() + "Z",
+                "model": service.model_name,
+            }
+            
+            response_serializer = ChatSupportResponseSerializer(data=response_data)
+            response_serializer.is_valid(raise_exception=True)
+            
+            return Response(
+                response_serializer.validated_data,
+                status=status.HTTP_200_OK,
+            )
+            
+        except ChatServiceError as e:
+            logger.warning(f"Chat service error: {e}")
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error in chat support: {e}")
+            return Response(
+                {"error": "An unexpected error occurred in the chat service."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+    
+    def _build_context(self, student_id: str = None, topic_id: int = None, context: str = None) -> str:
+        """Build context information for the chat service."""
+        parts = []
+        
+        if student_id:
+            parts.append(f"Student ID: {student_id}")
+        
+        if topic_id:
+            parts.append(f"Topic ID: {topic_id}")
+        
+        if context:
+            parts.append(f"Context: {context}")
+        
+        return " | ".join(parts) if parts else None

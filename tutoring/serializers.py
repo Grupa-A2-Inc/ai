@@ -87,3 +87,44 @@ class CurriculumTopicSerializer(serializers.Serializer):
 class CurriculumCatalogResponseSerializer(serializers.Serializer):
     subjects = CurriculumSubjectSerializer(many=True)
     topics = CurriculumTopicSerializer(many=True)
+
+
+class ChatSupportRequestSerializer(serializers.Serializer):
+    message = serializers.CharField(
+        max_length=1000,
+        min_length=1,
+        help_text="The user's question or message for chat support"
+    )
+    studentId = serializers.CharField(
+        required=False,
+        help_text="Optional: the student ID for personalized context"
+    )
+    topicId = serializers.IntegerField(
+        required=False,
+        min_value=1,
+        help_text="Optional: the topic ID being studied"
+    )
+    context = serializers.CharField(
+        required=False,
+        max_length=500,
+        allow_blank=True,
+        help_text="Optional: additional context for the chat"
+    )
+    language = serializers.ChoiceField(
+        choices=["en", "ro"],
+        default="en",
+        required=False,
+        help_text="Language for response: 'en' for English, 'ro' for Romanian"
+    )
+
+
+class ChatSupportResponseSerializer(serializers.Serializer):
+    response = serializers.CharField(
+        help_text="The chat support response"
+    )
+    timestamp = serializers.DateTimeField(
+        help_text="When the response was generated"
+    )
+    model = serializers.CharField(
+        help_text="The LLM model used"
+    )
