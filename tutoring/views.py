@@ -579,7 +579,7 @@ class CustomerSupportChatView(APIView):
     )
     def post(self, request):
         api_key = request.headers.get("X-API-Key")
-        if api_key != settings.EXTERNAL_API_KEY:
+        if api_key != settings.AI_API_KEY:
             raise PermissionDenied(INVALID_API_KEY_MESSAGE)
 
         serializer = CustomerSupportChatRequestSerializer(data=request.data)
