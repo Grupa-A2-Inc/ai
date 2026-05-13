@@ -68,6 +68,7 @@ def test_generate_repairs_invalid_first_response():
                 }
             ),
             json.dumps(VALID_PAYLOAD),
+            json.dumps(VALID_PAYLOAD),
         ]
     )
 
@@ -80,9 +81,47 @@ def test_generate_repairs_invalid_first_response():
     questions = service.generate_from_prompt("prompt", expected_count=1)
 
     assert questions == VALID_PAYLOAD["questions"]
-    assert len(prompts) == 2
+    assert len(prompts) == 3
     assert "Repair it into valid JSON" in prompts[1]
     assert "\"questions\" must contain exactly 1 items" in prompts[1]
+    assert "strict educational content validator" in prompts[2]
+
+
+def test_generate_audits_and_corrects_valid_payload():
+    wrong_payload = {
+        "questions": [
+            {
+                "text": "Dacă x^2 - 5x + 6 = 0, atunci Δ este:",
+                "type": "SINGLE_CHOICE",
+                "answers": ["1", "-1", "4", "3"],
+                "correctAnswers": ["4"],
+                "difficulty": 0.7,
+            }
+        ]
+    }
+    corrected_payload = {
+        "questions": [
+            {
+                **wrong_payload["questions"][0],
+                "correctAnswers": ["1"],
+            }
+        ]
+    }
+    prompts = []
+    responses = iter([json.dumps(wrong_payload), json.dumps(corrected_payload)])
+
+    def transport(prompt):
+        prompts.append(prompt)
+        return next(responses)
+
+    service = LLMQuestionGenerationService(transport=transport)
+
+    questions = service.generate_from_prompt("prompt", expected_count=1)
+
+    assert questions == corrected_payload["questions"]
+    assert len(prompts) == 2
+    assert "strict educational content validator" in prompts[1]
+    assert "Solve the question independently" in prompts[1]
 
 
 def test_generate_rejects_invalid_schema():

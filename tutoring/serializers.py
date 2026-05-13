@@ -119,6 +119,11 @@ class GeneratedQuestionSerializer(serializers.Serializer):
                 {"correctAnswers": "Single choice questions must have exactly one correct answer."}
             )
 
+        if attrs["type"] == "MULTIPLE_CHOICE" and len(correct_answers) < 2:
+            raise serializers.ValidationError(
+                {"correctAnswers": "Multiple choice questions must have at least two correct answers."}
+            )
+
         return attrs
 
 
