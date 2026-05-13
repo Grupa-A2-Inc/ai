@@ -35,3 +35,12 @@ def test_generated_question_rejects_multiple_correct_answers_for_single_choice()
 
     assert not serializer.is_valid()
     assert "correctAnswers" in serializer.errors
+
+
+def test_generated_question_rejects_single_correct_answer_for_multiple_choice():
+    serializer = GeneratedQuestionSerializer(
+        data=valid_question(type="MULTIPLE_CHOICE")
+    )
+
+    assert not serializer.is_valid()
+    assert "correctAnswers" in serializer.errors

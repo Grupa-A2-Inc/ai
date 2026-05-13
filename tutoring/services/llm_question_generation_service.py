@@ -44,6 +44,20 @@ class LLMQuestionGenerationService:
         prompt: str,
         expected_count: int | None = None,
     ) -> list[dict]:
+        questions = self._generate_valid_questions_with_repair(
+            prompt=prompt,
+            expected_count=expected_count,
+        )
+        return self._audit_questions(
+            questions=questions,
+            expected_count=expected_count,
+        )
+
+    def _generate_valid_questions_with_repair(
+        self,
+        prompt: str,
+        expected_count: int | None = None,
+    ) -> list[dict]:
         try:
             return self._generate_from_prompt_once(
                 prompt=prompt,
@@ -64,6 +78,65 @@ class LLMQuestionGenerationService:
                 )
             except LLMQuestionGenerationInvalidResponseError as second_error:
                 raise second_error from first_error
+
+    def _audit_questions(
+        self,
+        questions: list[dict],
+        expected_count: int | None = None,
+    ) -> list[dict]:
+        audit_prompt = self._build_audit_prompt(
+            questions=questions,
+            expected_count=expected_count,
+        )
+
+        try:
+            return self._generate_valid_questions_with_repair(
+                prompt=audit_prompt,
+                expected_count=expected_count,
+            )
+        except LLMQuestionGenerationInvalidResponseError:
+            logger.exception("LLM question audit returned an invalid response")
+            return questions
+
+    def _build_audit_prompt(
+        self,
+        questions: list[dict],
+        expected_count: int | None = None,
+    ) -> str:
+        expected_count_rule = ""
+        if expected_count is not None:
+            expected_count_rule = (
+                f"- The \"questions\" array must contain exactly {expected_count} items.\n"
+            )
+
+        payload = json.dumps(
+            {"questions": questions},
+            ensure_ascii=False,
+            indent=2,
+        )
+
+        return (
+            "You are a strict educational content validator.\n\n"
+            "You will receive generated multiple-choice questions as JSON.\n"
+            "For each question:\n"
+            "- Solve the question independently.\n"
+            "- Determine which answer options are truly correct.\n"
+            "- Compare your result with correctAnswers.\n"
+            "- If correctAnswers is wrong, replace it with the correct answer "
+            "option or options copied exactly from answers.\n"
+            "- If the question type is wrong, fix it: SINGLE_CHOICE if exactly "
+            "one answer is correct, MULTIPLE_CHOICE if two or more answers are correct.\n"
+            "- If the text field reveals the correct answer, rewrite only the "
+            "question text so it asks the same concept without revealing the answer.\n"
+            "- Keep exactly 4 answer options for every question.\n"
+            "- Keep the same JSON structure.\n"
+            f"{expected_count_rule}"
+            "- Return only valid JSON.\n"
+            "- Do not explain.\n"
+            "- Do not add markdown.\n\n"
+            "Questions JSON:\n"
+            f"{payload}\n"
+        )
 
     def _generate_from_prompt_once(
         self,
