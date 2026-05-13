@@ -42,6 +42,22 @@ class ResponseContext:
         return False
 
 
+def gemini_response(text):
+    return {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {
+                            "text": text,
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+
+
 def test_generate_uses_prompt_service_and_transport():
     service = LLMQuestionGenerationService(
         prompt_service=DummyPromptService(),
@@ -231,6 +247,74 @@ def test_call_local_llm_posts_prompt_and_extracts_response(urlopen):
     assert request_payload["prompt"] == "prompt"
     assert request_payload["options"]["temperature"] == 0.1
     assert urlopen.call_args.kwargs["timeout"] == 12
+
+
+@patch("tutoring.services.llm_question_generation_service.urlopen")
+@override_settings(
+    LLM_PROVIDER="gemini",
+    GEMINI_API_KEY="test-api-key",
+    GEMINI_MODEL="gemini-test-model",
+    GEMINI_BASE_URL="https://generativelanguage.googleapis.com/v1beta",
+    LLM_REQUEST_TIMEOUT_SECONDS=13,
+)
+def test_configured_llm_uses_gemini_provider(urlopen):
+    urlopen.return_value = ResponseContext(
+        json.dumps(gemini_response(json.dumps(VALID_PAYLOAD)))
+    )
+    service = LLMQuestionGenerationService()
+
+    assert service._call_configured_llm("prompt") == json.dumps(VALID_PAYLOAD)
+    request = urlopen.call_args.args[0]
+    request_payload = json.loads(request.data.decode("utf-8"))
+
+    assert request.method == "POST"
+    assert (
+        request.full_url
+        == "https://generativelanguage.googleapis.com/v1beta/models/gemini-test-model:generateContent"
+    )
+    assert request.headers["X-goog-api-key"] == "test-api-key"
+    assert request_payload["contents"][0]["parts"][0]["text"] == "prompt"
+    assert request_payload["generationConfig"]["temperature"] == 0.1
+    assert request_payload["generationConfig"]["responseMimeType"] == "application/json"
+    assert urlopen.call_args.kwargs["timeout"] == 13
+
+
+@override_settings(LLM_PROVIDER="bad-provider")
+def test_configured_llm_rejects_unsupported_provider():
+    service = LLMQuestionGenerationService()
+
+    with pytest.raises(LLMQuestionGenerationUnavailableError):
+        service._call_configured_llm("prompt")
+
+
+@override_settings(LLM_PROVIDER="gemini", GEMINI_API_KEY="")
+def test_call_gemini_llm_rejects_missing_api_key():
+    service = LLMQuestionGenerationService()
+
+    with pytest.raises(LLMQuestionGenerationUnavailableError):
+        service._call_gemini_llm("prompt")
+
+
+def test_extract_gemini_response_text_supported_shape():
+    service = LLMQuestionGenerationService(transport=lambda prompt: "")
+
+    assert service._extract_gemini_response_text(gemini_response(" body ")) == "body"
+
+
+@pytest.mark.parametrize(
+    "response_json",
+    [
+        {},
+        {"candidates": []},
+        {"candidates": [{"content": None}]},
+        {"candidates": [{"content": {"parts": []}}]},
+    ],
+)
+def test_extract_gemini_response_text_rejects_missing_text(response_json):
+    service = LLMQuestionGenerationService(transport=lambda prompt: "")
+
+    with pytest.raises(LLMQuestionGenerationInvalidResponseError):
+        service._extract_gemini_response_text(response_json)
 
 
 @patch("tutoring.services.llm_question_generation_service.urlopen")

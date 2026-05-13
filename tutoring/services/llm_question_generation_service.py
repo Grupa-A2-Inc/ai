@@ -34,7 +34,7 @@ class LLMQuestionGenerationService:
 
     def __init__(self, prompt_service=None, transport=None):
         self.prompt_service = prompt_service or QuestionGenerationPromptService()
-        self.transport = transport or self._call_local_llm
+        self.transport = transport or self._call_configured_llm
         self.request_timeout_seconds = getattr(
             settings,
             "LLM_REQUEST_TIMEOUT_SECONDS",
@@ -46,6 +46,7 @@ class LLMQuestionGenerationService:
             "LLM_AUDIT_TIME_BUDGET_SECONDS",
             45,
         )
+        self.provider = getattr(settings, "LLM_PROVIDER", "ollama").strip().lower()
 
     def generate(self, content: str, count: int = 5) -> list[dict]:
         prompt = self.prompt_service.build_prompt(content=content, count=count)
@@ -245,6 +246,17 @@ class LLMQuestionGenerationService:
             "or text outside JSON.\n"
         )
 
+    def _call_configured_llm(self, prompt: str) -> str:
+        if self.provider == "gemini":
+            return self._call_gemini_llm(prompt)
+
+        if self.provider == "ollama":
+            return self._call_local_llm(prompt)
+
+        raise LLMQuestionGenerationUnavailableError(
+            f"Unsupported LLM provider: {self.provider}"
+        )
+
     def _call_local_llm(self, prompt: str) -> str:
         url = getattr(settings, "LLM_URL", "http://localhost:11434/api/generate")
         model = getattr(settings, "LLM_MODEL", "qwen2.5:3b-instruct")
@@ -283,6 +295,62 @@ class LLMQuestionGenerationService:
 
         return self._extract_local_response_text(response_json)
 
+    def _call_gemini_llm(self, prompt: str) -> str:
+        api_key = getattr(settings, "GEMINI_API_KEY", "")
+        if not api_key:
+            raise LLMQuestionGenerationUnavailableError(
+                "Gemini API key is not configured."
+            )
+
+        base_url = getattr(
+            settings,
+            "GEMINI_BASE_URL",
+            "https://generativelanguage.googleapis.com/v1beta",
+        )
+        model = getattr(settings, "GEMINI_MODEL", "gemini-2.5-flash")
+        url = f"{base_url.rstrip('/')}/models/{model}:generateContent"
+        request_payload = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": prompt}],
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.1,
+                "topP": 0.95,
+                "responseMimeType": "application/json",
+            },
+        }
+
+        request = Request(
+            url,
+            data=json.dumps(request_payload).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "x-goog-api-key": api_key,
+            },
+            method="POST",
+        )
+
+        try:
+            with urlopen(request, timeout=self.request_timeout_seconds) as response:
+                response_body = response.read().decode("utf-8")
+        except (URLError, TimeoutError, ValueError) as exc:
+            logger.exception("Gemini LLM API request failed")
+            raise LLMQuestionGenerationUnavailableError(
+                "Gemini LLM API request failed."
+            ) from exc
+
+        try:
+            response_json = json.loads(response_body)
+        except json.JSONDecodeError as exc:
+            raise LLMQuestionGenerationInvalidResponseError(
+                "Gemini returned invalid JSON."
+            ) from exc
+
+        return self._extract_gemini_response_text(response_json)
+
     def _extract_local_response_text(self, response_json: dict) -> str:
         response_text = response_json.get("response")
         if isinstance(response_text, str) and response_text.strip():
@@ -298,6 +366,35 @@ class LLMQuestionGenerationService:
 
         raise LLMQuestionGenerationInvalidResponseError(
             "Local LLM response does not contain generated text."
+        )
+
+    def _extract_gemini_response_text(self, response_json: dict) -> str:
+        candidates = response_json.get("candidates")
+        if not isinstance(candidates, list) or not candidates:
+            raise LLMQuestionGenerationInvalidResponseError(
+                "Gemini response does not contain candidates."
+            )
+
+        content = candidates[0].get("content")
+        if not isinstance(content, dict):
+            raise LLMQuestionGenerationInvalidResponseError(
+                "Gemini response does not contain content."
+            )
+
+        parts = content.get("parts")
+        if not isinstance(parts, list):
+            raise LLMQuestionGenerationInvalidResponseError(
+                "Gemini response does not contain content parts."
+            )
+
+        for part in parts:
+            if isinstance(part, dict):
+                text = part.get("text")
+                if isinstance(text, str) and text.strip():
+                    return text.strip()
+
+        raise LLMQuestionGenerationInvalidResponseError(
+            "Gemini response does not contain generated text."
         )
 
     def _extract_response_text(self, raw_response) -> str:

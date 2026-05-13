@@ -67,9 +67,16 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 EXTERNAL_API_KEY = os.getenv("EXTERNAL_API_KEY", "")
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama").strip().lower()
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 LLM_URL = os.getenv("LLM_URL", f"{OLLAMA_BASE_URL.rstrip('/')}/api/generate")
 LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:3b-instruct")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_BASE_URL = os.getenv(
+    "GEMINI_BASE_URL",
+    "https://generativelanguage.googleapis.com/v1beta",
+)
 LLM_FALLBACK_ENABLED = _env_bool("LLM_FALLBACK_ENABLED", default=not TESTING)
 LLM_REQUEST_TIMEOUT_SECONDS = _env_int("LLM_REQUEST_TIMEOUT_SECONDS", 35)
 LLM_AUDIT_ENABLED = _env_bool("LLM_AUDIT_ENABLED", default=not TESTING)
