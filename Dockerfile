@@ -26,4 +26,4 @@ EXPOSE 8000
 
 USER appuser
 
-CMD ["sh", "-c", "python manage.py migrate && gunicorn adaptive_ai.wsgi:application --bind 0.0.0.0:8000 --timeout 6000 --workers 1"]
+CMD ["sh", "-c", "python manage.py migrate && gunicorn adaptive_ai.wsgi:application --bind 0.0.0.0:8000 --timeout 90 --workers 1"]
