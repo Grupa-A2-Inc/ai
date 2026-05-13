@@ -46,7 +46,7 @@ def assert_invalid_api_key_is_rejected(view_class):
         view_class().post(request)
 
 
-@override_settings(EXTERNAL_API_KEY="test-secret")
+@override_settings(EXTERNAL_API_KEY="test-secret", AI_API_KEY="test-secret")
 class ViewCoverageTests(APITestCase):
     def setUp(self):
         self.factory = APIRequestFactory()
@@ -73,6 +73,20 @@ class ViewCoverageTests(APITestCase):
 
     def test_customer_support_chat_rejects_invalid_api_key_in_view(self):
         assert_invalid_api_key_is_rejected(CustomerSupportChatView)
+
+    @override_settings(EXTERNAL_API_KEY="external-secret", AI_API_KEY="ai-secret")
+    @patch("tutoring.views.CustomerSupportChatService")
+    def test_customer_support_chat_uses_ai_api_key(self, service_class):
+        service_class.return_value.answer.return_value = "Răspuns suport."
+
+        response = self.client.post(
+            reverse("customer-support-chat"),
+            {"message": "Am nevoie de ajutor."},
+            format="json",
+            HTTP_X_API_KEY="ai-secret",
+        )
+
+        self.assertEqual(response.status_code, 200)
 
     @patch("tutoring.views.CustomerSupportChatService")
     def test_customer_support_chat_returns_answer(self, service_class):

@@ -67,6 +67,7 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 EXTERNAL_API_KEY = os.getenv("EXTERNAL_API_KEY", "")
+AI_API_KEY = os.getenv("AI_API_KEY", "")
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama").strip().lower()
 LLM_FALLBACK_PROVIDER = os.getenv("LLM_FALLBACK_PROVIDER", "ollama").strip().lower()
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
