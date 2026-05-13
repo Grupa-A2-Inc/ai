@@ -503,7 +503,7 @@ class CurriculumCatalogView(APIView):
 
 
 class CustomerSupportChatView(APIView):
-    permission_classes = [HasValidApiKey]
+    permission_classes = []
 
     @extend_schema(
         operation_id="customerSupportChat",
