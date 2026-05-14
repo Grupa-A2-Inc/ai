@@ -1,0 +1,86 @@
+from django.test import TestCase
+
+from tutoring.models import Question, QuestionType
+from tutoring.services.curriculum_catalog_service import CurriculumCatalogService
+
+
+class CurriculumCatalogServiceTests(TestCase):
+    def _create_questions(
+        self,
+        subject_id: int,
+        topic_id: int,
+        count: int,
+    ):
+        Question.objects.bulk_create(
+            [
+                Question(
+                    subject_id=subject_id,
+                    topic_id=topic_id,
+                    question_type=QuestionType.SINGLE_CHOICE,
+                    content=f"Question {index}",
+                    difficulty=0.5,
+                    is_active=True,
+                )
+                for index in range(count)
+            ]
+        )
+
+    def test_catalog_uses_database_subject_topic_pairs(self):
+        self._create_questions(subject_id=11, topic_id=2001, count=50)
+
+        catalog = CurriculumCatalogService().list_catalog(topic_id=2001)
+
+        self.assertEqual(
+            catalog,
+            {
+                "subjects": [
+                    {
+                        "subjectId": 11,
+                        "subjectName": "Limba engleză",
+                    }
+                ],
+                "topics": [
+                    {
+                        "topicId": 2001,
+                        "subjectId": 11,
+                        "subjectName": "Limba engleză",
+                        "grade": 9,
+                        "topicName": "Basic grammar structures",
+                    }
+                ],
+            },
+        )
+
+    def test_catalog_ignores_sparse_generated_fallback_topics(self):
+        self._create_questions(subject_id=1, topic_id=2001, count=3)
+        self._create_questions(subject_id=11, topic_id=2001, count=50)
+
+        catalog = CurriculumCatalogService().list_catalog(topic_id=2001)
+
+        self.assertEqual(
+            [topic["subjectId"] for topic in catalog["topics"]],
+            [11],
+        )
+
+    def test_metadata_audit_accepts_verified_database_aliases(self):
+        self._create_questions(subject_id=11, topic_id=2001, count=50)
+
+        gaps = CurriculumCatalogService().find_database_metadata_gaps()
+
+        self.assertEqual(gaps, [])
+
+    def test_metadata_audit_reports_unmapped_database_pairs(self):
+        self._create_questions(subject_id=99, topic_id=9901, count=50)
+
+        gaps = CurriculumCatalogService().find_database_metadata_gaps()
+
+        self.assertEqual(
+            gaps,
+            [
+                {
+                    "subjectId": 99,
+                    "topicId": 9901,
+                    "questionCount": 50,
+                }
+            ],
+        )

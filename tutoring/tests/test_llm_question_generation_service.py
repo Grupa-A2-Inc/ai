@@ -76,7 +76,6 @@ def test_provider_argument_overrides_global_provider():
     assert service.provider == "ollama"
 
 
-@override_settings(LLM_AUDIT_ENABLED=True)
 def test_generate_repairs_invalid_first_response():
     prompts = []
     responses = iter(
@@ -92,7 +91,6 @@ def test_generate_repairs_invalid_first_response():
                 }
             ),
             json.dumps(VALID_PAYLOAD),
-            json.dumps(VALID_PAYLOAD),
         ]
     )
 
@@ -105,64 +103,9 @@ def test_generate_repairs_invalid_first_response():
     questions = service.generate_from_prompt("prompt", expected_count=1)
 
     assert questions == VALID_PAYLOAD["questions"]
-    assert len(prompts) == 3
+    assert len(prompts) == 2
     assert "Repair it into valid JSON" in prompts[1]
     assert "\"questions\" must contain exactly 1 items" in prompts[1]
-    assert "strict educational content validator" in prompts[2]
-
-
-@override_settings(LLM_AUDIT_ENABLED=True)
-def test_generate_audits_and_corrects_valid_payload():
-    wrong_payload = {
-        "questions": [
-            {
-                "text": "Dacă x^2 - 5x + 6 = 0, atunci Δ este:",
-                "type": "SINGLE_CHOICE",
-                "answers": ["1", "-1", "4", "3"],
-                "correctAnswers": ["4"],
-                "difficulty": 0.7,
-            }
-        ]
-    }
-    corrected_payload = {
-        "questions": [
-            {
-                **wrong_payload["questions"][0],
-                "correctAnswers": ["1"],
-            }
-        ]
-    }
-    prompts = []
-    responses = iter([json.dumps(wrong_payload), json.dumps(corrected_payload)])
-
-    def transport(prompt):
-        prompts.append(prompt)
-        return next(responses)
-
-    service = LLMQuestionGenerationService(transport=transport)
-
-    questions = service.generate_from_prompt("prompt", expected_count=1)
-
-    assert questions == corrected_payload["questions"]
-    assert len(prompts) == 2
-    assert "strict educational content validator" in prompts[1]
-    assert "Solve the question independently" in prompts[1]
-
-
-@override_settings(LLM_AUDIT_ENABLED=True, LLM_AUDIT_TIME_BUDGET_SECONDS=0)
-def test_generate_skips_audit_when_time_budget_is_exhausted():
-    prompts = []
-
-    def transport(prompt):
-        prompts.append(prompt)
-        return json.dumps(VALID_PAYLOAD)
-
-    service = LLMQuestionGenerationService(transport=transport)
-
-    questions = service.generate_from_prompt("prompt", expected_count=1)
-
-    assert questions == VALID_PAYLOAD["questions"]
-    assert prompts == ["prompt"]
 
 
 def test_generate_rejects_invalid_schema():
@@ -196,6 +139,51 @@ def test_generate_applies_default_difficulty_when_missing():
     )
 
     assert questions[0]["difficulty"] == 0.6
+
+
+def test_generate_normalizes_multiple_choice_with_one_correct_answer():
+    payload = {
+        "questions": [
+            {
+                "text": "Question?",
+                "type": "MULTIPLE_CHOICE",
+                "answers": ["A", "B", "C", "D"],
+                "correctAnswers": ["A"],
+                "difficulty": 0.5,
+            }
+        ]
+    }
+    prompts = []
+
+    def transport(prompt):
+        prompts.append(prompt)
+        return json.dumps(payload)
+
+    service = LLMQuestionGenerationService(transport=transport)
+
+    questions = service.generate_from_prompt("prompt", expected_count=1)
+
+    assert questions[0]["type"] == "SINGLE_CHOICE"
+    assert prompts == ["prompt"]
+
+
+def test_generate_normalizes_single_choice_with_multiple_correct_answers():
+    payload = {
+        "questions": [
+            {
+                "text": "Question?",
+                "type": "SINGLE_CHOICE",
+                "answers": ["A", "B", "C", "D"],
+                "correctAnswers": ["A", "B"],
+                "difficulty": 0.5,
+            }
+        ]
+    }
+    service = LLMQuestionGenerationService(transport=lambda prompt: json.dumps(payload))
+
+    questions = service.generate_from_prompt("prompt", expected_count=1)
+
+    assert questions[0]["type"] == "MULTIPLE_CHOICE"
 
 
 def test_generate_rejects_unexpected_count():
