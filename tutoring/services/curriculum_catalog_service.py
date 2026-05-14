@@ -1,3 +1,10 @@
+from collections import defaultdict
+
+from django.db.models import Count
+
+from tutoring.models import Question
+
+
 SUBJECTS = [
     {"subjectId": 1, "subjectName": "Limba și literatura română"},
     {"subjectId": 2, "subjectName": "Matematică"},
@@ -180,10 +187,119 @@ TOPICS = [
     {"topicId": 2016, "subjectId": 12, "grade": 12, "topicName": "Integrated communication tasks"},
 ]
 
+MIN_CATALOG_QUESTION_COUNT = 50
+SUBJECT_BY_ID = {subject["subjectId"]: subject for subject in SUBJECTS}
+TOPIC_METADATA_BY_ID = {topic["topicId"]: topic for topic in TOPICS}
+TOPIC_METADATA_BY_PAIR = {
+    (topic["subjectId"], topic["topicId"]): topic for topic in TOPICS
+}
+
+# These pairs exist in the current SQLite question table with enough questions
+# to be catalog entries, but the imported subject_id does not match the original
+# static curriculum subject. The alias points to the topic metadata that matches
+# the actual question content.
+DB_TOPIC_METADATA_ALIASES = {
+    (4, 1014): 1014,
+    (4, 1016): 1016,
+    (4, 1409): 1409,
+    (4, 1410): 1410,
+    (4, 1411): 1411,
+    (4, 1412): 1412,
+    (4, 1509): 1509,
+    (4, 1510): 1510,
+    (4, 1511): 1511,
+    (4, 1512): 1512,
+    (4, 1609): 1609,
+    (4, 1610): 1610,
+    (4, 1611): 1611,
+    (4, 1809): 1809,
+    (4, 1811): 1811,
+    (4, 2009): 2009,
+    (4, 2012): 2012,
+    (4, 2101): 2101,
+    (4, 2103): 2103,
+    (6, 1109): 1109,
+    (6, 1210): 1210,
+    (6, 1211): 1211,
+    (6, 1212): 1212,
+    (6, 1605): 1605,
+    (6, 1606): 1606,
+    (6, 1607): 1607,
+    (6, 1608): 1608,
+    (6, 1705): 1705,
+    (6, 1706): 1706,
+    (6, 1707): 1707,
+    (6, 1708): 1708,
+    (6, 1806): 1806,
+    (6, 2007): 2007,
+    (9, 2005): 2005,
+    (9, 2006): 2006,
+    (11, 2001): 2001,
+    (11, 2002): 2002,
+    (11, 2003): 2003,
+    (11, 2004): 2004,
+    (12, 1009): 1009,
+    (12, 1010): 1010,
+    (12, 1011): 1011,
+    (12, 1012): 1012,
+    (16, 1612): 1612,
+    (18, 1810): 1810,
+    (18, 1812): 1812,
+    (20, 2010): 2010,
+    (20, 2011): 2011,
+    (21, 2102): 2102,
+    (21, 2104): 2104,
+}
+
+
+def _metadata_for_pair(subject_id: int, topic_id: int):
+    metadata = TOPIC_METADATA_BY_PAIR.get((subject_id, topic_id))
+    if metadata:
+        return metadata
+
+    metadata_topic_id = DB_TOPIC_METADATA_ALIASES.get((subject_id, topic_id))
+    if metadata_topic_id is not None:
+        return TOPIC_METADATA_BY_ID.get(metadata_topic_id)
+
+    return None
+
+
+def _topic_subject_name(subject_id: int, topic_id: int) -> str:
+    topic_metadata = _metadata_for_pair(subject_id, topic_id)
+    if topic_metadata:
+        subject = SUBJECT_BY_ID.get(topic_metadata["subjectId"])
+        if subject:
+            return subject["subjectName"]
+
+    subject = SUBJECT_BY_ID.get(subject_id)
+    if subject:
+        return subject["subjectName"]
+
+    return f"Subject {subject_id}"
+
+
+def _topic_name(subject_id: int, topic_id: int) -> str:
+    topic_metadata = _metadata_for_pair(subject_id, topic_id)
+    if topic_metadata:
+        return topic_metadata["topicName"]
+
+    return f"Topic {topic_id}"
+
+
+def _topic_grade(subject_id: int, topic_id: int) -> int:
+    topic_metadata = _metadata_for_pair(subject_id, topic_id)
+    if topic_metadata:
+        return topic_metadata["grade"]
+
+    return 0
+
 
 class CurriculumCatalogService:
     def list_catalog(self, grade=None, subject_id=None, topic_id=None):
-        topics = TOPICS
+        topics = self._topics_from_database()
+
+        if not topics:
+            topics = self._static_topics()
 
         if grade is not None:
             topics = [topic for topic in topics if topic["grade"] == grade]
@@ -192,21 +308,73 @@ class CurriculumCatalogService:
         if topic_id is not None:
             topics = [topic for topic in topics if topic["topicId"] == topic_id]
 
-        subject_by_id = {subject["subjectId"]: subject for subject in SUBJECTS}
-        subject_ids = {topic["subjectId"] for topic in topics}
-        subjects = [
-            subject for subject in SUBJECTS if subject["subjectId"] in subject_ids
-        ]
-
-        enriched_topics = [
-            {
-                **topic,
-                "subjectName": subject_by_id[topic["subjectId"]]["subjectName"],
-            }
-            for topic in topics
-        ]
+        subjects = self._subjects_for_topics(topics)
 
         return {
             "subjects": subjects,
-            "topics": enriched_topics,
+            "topics": topics,
         }
+
+    def _topics_from_database(self):
+        rows = (
+            Question.objects.filter(is_active=True)
+            .values("subject_id", "topic_id")
+            .annotate(question_count=Count("id"))
+            .filter(question_count__gte=MIN_CATALOG_QUESTION_COUNT)
+            .order_by("subject_id", "topic_id")
+        )
+
+        return [
+            {
+                "topicId": row["topic_id"],
+                "subjectId": row["subject_id"],
+                "subjectName": _topic_subject_name(
+                    subject_id=row["subject_id"],
+                    topic_id=row["topic_id"],
+                ),
+                "grade": _topic_grade(row["subject_id"], row["topic_id"]),
+                "topicName": _topic_name(row["subject_id"], row["topic_id"]),
+            }
+            for row in rows
+        ]
+
+    def find_database_metadata_gaps(self):
+        rows = (
+            Question.objects.filter(is_active=True)
+            .values("subject_id", "topic_id")
+            .annotate(question_count=Count("id"))
+            .filter(question_count__gte=MIN_CATALOG_QUESTION_COUNT)
+            .order_by("subject_id", "topic_id")
+        )
+
+        return [
+            {
+                "subjectId": row["subject_id"],
+                "topicId": row["topic_id"],
+                "questionCount": row["question_count"],
+            }
+            for row in rows
+            if _metadata_for_pair(row["subject_id"], row["topic_id"]) is None
+        ]
+
+    def _static_topics(self):
+        return [
+            {
+                **topic,
+                "subjectName": SUBJECT_BY_ID[topic["subjectId"]]["subjectName"],
+            }
+            for topic in TOPICS
+        ]
+
+    def _subjects_for_topics(self, topics):
+        names_by_subject_id = defaultdict(set)
+        for topic in topics:
+            names_by_subject_id[topic["subjectId"]].add(topic["subjectName"])
+
+        return [
+            {
+                "subjectId": subject_id,
+                "subjectName": " / ".join(sorted(subject_names)),
+            }
+            for subject_id, subject_names in sorted(names_by_subject_id.items())
+        ]
