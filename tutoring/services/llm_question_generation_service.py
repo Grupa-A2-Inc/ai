@@ -1,6 +1,5 @@
 import json
 import logging
-import time
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -40,12 +39,6 @@ class LLMQuestionGenerationService:
             "LLM_REQUEST_TIMEOUT_SECONDS",
             self.DEFAULT_REQUEST_TIMEOUT_SECONDS,
         )
-        self.audit_enabled = getattr(settings, "LLM_AUDIT_ENABLED", True)
-        self.audit_time_budget_seconds = getattr(
-            settings,
-            "LLM_AUDIT_TIME_BUDGET_SECONDS",
-            45,
-        )
         self.provider = (
             provider
             if provider is not None
@@ -62,16 +55,9 @@ class LLMQuestionGenerationService:
         expected_count: int | None = None,
         default_difficulty: float | None = None,
     ) -> list[dict]:
-        started_at = time.monotonic()
-        questions = self._generate_valid_questions_with_repair(
+        return self._generate_valid_questions_with_repair(
             prompt=prompt,
             expected_count=expected_count,
-            default_difficulty=default_difficulty,
-        )
-        return self._audit_questions(
-            questions=questions,
-            expected_count=expected_count,
-            started_at=started_at,
             default_difficulty=default_difficulty,
         )
 
@@ -104,80 +90,6 @@ class LLMQuestionGenerationService:
             except LLMQuestionGenerationInvalidResponseError as second_error:
                 raise second_error from first_error
 
-    def _audit_questions(
-        self,
-        questions: list[dict],
-        expected_count: int | None = None,
-        started_at: float | None = None,
-        default_difficulty: float | None = None,
-    ) -> list[dict]:
-        if not self.audit_enabled:
-            return questions
-
-        if started_at is not None:
-            elapsed_seconds = time.monotonic() - started_at
-            if elapsed_seconds >= self.audit_time_budget_seconds:
-                logger.warning(
-                    "Skipping LLM question audit after %.2f seconds",
-                    elapsed_seconds,
-                )
-                return questions
-
-        audit_prompt = self._build_audit_prompt(
-            questions=questions,
-            expected_count=expected_count,
-        )
-
-        try:
-            return self._generate_valid_questions_with_repair(
-                prompt=audit_prompt,
-                expected_count=expected_count,
-                default_difficulty=default_difficulty,
-            )
-        except LLMQuestionGenerationInvalidResponseError:
-            logger.exception("LLM question audit returned an invalid response")
-            return questions
-
-    def _build_audit_prompt(
-        self,
-        questions: list[dict],
-        expected_count: int | None = None,
-    ) -> str:
-        expected_count_rule = ""
-        if expected_count is not None:
-            expected_count_rule = (
-                f"- The \"questions\" array must contain exactly {expected_count} items.\n"
-            )
-
-        payload = json.dumps(
-            {"questions": questions},
-            ensure_ascii=False,
-            indent=2,
-        )
-
-        return (
-            "You are a strict educational content validator.\n\n"
-            "You will receive generated multiple-choice questions as JSON.\n"
-            "For each question:\n"
-            "- Solve the question independently.\n"
-            "- Determine which answer options are truly correct.\n"
-            "- Compare your result with correctAnswers.\n"
-            "- If correctAnswers is wrong, replace it with the correct answer "
-            "option or options copied exactly from answers.\n"
-            "- If the question type is wrong, fix it: SINGLE_CHOICE if exactly "
-            "one answer is correct, MULTIPLE_CHOICE if two or more answers are correct.\n"
-            "- If the text field reveals the correct answer, rewrite only the "
-            "question text so it asks the same concept without revealing the answer.\n"
-            "- Keep exactly 4 answer options for every question.\n"
-            "- Keep the same JSON structure.\n"
-            f"{expected_count_rule}"
-            "- Return only valid JSON.\n"
-            "- Do not explain.\n"
-            "- Do not add markdown.\n\n"
-            "Questions JSON:\n"
-            f"{payload}\n"
-        )
-
     def _generate_from_prompt_once(
         self,
         prompt: str,
@@ -192,6 +104,7 @@ class LLMQuestionGenerationService:
                 payload=payload,
                 default_difficulty=default_difficulty,
             )
+            self._normalize_question_types(payload)
             return self._validate_payload(payload, expected_count=expected_count)
         except LLMQuestionGenerationInvalidResponseError as exc:
             exc.raw_response = response_text
@@ -213,6 +126,24 @@ class LLMQuestionGenerationService:
         for question in questions:
             if isinstance(question, dict) and "difficulty" not in question:
                 question["difficulty"] = default_difficulty
+
+    def _normalize_question_types(self, payload: dict) -> None:
+        questions = payload.get("questions")
+        if not isinstance(questions, list):
+            return
+
+        for question in questions:
+            if not isinstance(question, dict):
+                continue
+
+            correct_answers = question.get("correctAnswers")
+            if not isinstance(correct_answers, list):
+                continue
+
+            if len(correct_answers) == 1:
+                question["type"] = "SINGLE_CHOICE"
+            elif len(correct_answers) > 1:
+                question["type"] = "MULTIPLE_CHOICE"
 
     def _validate_payload(
         self,
