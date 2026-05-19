@@ -6,6 +6,8 @@ from tutoring.views import (
     AdaptiveExercisesView,
     CurriculumCatalogView,
     CustomerSupportChatView,
+    GenerateQuestionsJobCreateView,
+    GenerateQuestionsJobStatusView,
     GenerateQuestionsView,
 )
 
@@ -15,5 +17,7 @@ urlpatterns = [
     path("api/v1/adaptive/exercises", AdaptiveExercisesView.as_view(), name="adaptive-exercises"),
     path("api/v1/catalog/curriculum", CurriculumCatalogView.as_view(), name="curriculum-catalog"),
     path("api/v1/chat/customer-support", CustomerSupportChatView.as_view(), name="customer-support-chat"),
+    path("api/v1/generate/jobs", GenerateQuestionsJobCreateView.as_view(), name="generate-questions-job-create"),
+    path("api/v1/generate/jobs/<uuid:job_id>", GenerateQuestionsJobStatusView.as_view(), name="generate-questions-job-status"),
     path('api/v1/generate', GenerateQuestionsView.as_view(), name="generate-questions"),
     ]

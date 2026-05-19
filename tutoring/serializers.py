@@ -140,6 +140,28 @@ class GenerateQuestionsResponseSerializer(serializers.Serializer):
     questions = GeneratedQuestionSerializer(many=True)
 
 
+class GenerateQuestionsJobCreateResponseSerializer(serializers.Serializer):
+    jobId = serializers.CharField()
+    status = serializers.ChoiceField(
+        choices=["PENDING", "RUNNING", "DONE", "FAILED"]
+    )
+
+
+class GenerateQuestionsJobStatusResponseSerializer(serializers.Serializer):
+    jobId = serializers.CharField()
+    status = serializers.ChoiceField(
+        choices=["PENDING", "RUNNING", "DONE", "FAILED"]
+    )
+    questions = GeneratedQuestionSerializer(
+        many=True,
+        required=False,
+    )
+    error = serializers.CharField(
+        required=False,
+        allow_blank=True,
+    )
+
+
 class ChatHistoryMessageSerializer(serializers.Serializer):
     role = serializers.ChoiceField(choices=["user", "assistant"])
     content = serializers.CharField(

@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from uuid import uuid4
 from unittest.mock import Mock, patch
 
 import pytest
@@ -24,6 +25,8 @@ from tutoring.views import (
     CurriculumCatalogView,
     CustomerSupportChatView,
     GenerateQuestionsView,
+    GenerateQuestionsJobCreateView,
+    GenerateQuestionsJobStatusView,
     RecommendQuestionView,
     StudentSyncView,
 )
@@ -492,6 +495,132 @@ class ViewCoverageTests(APITestCase):
 
     def test_generate_questions_rejects_invalid_api_key_in_view(self):
         assert_invalid_api_key_is_rejected(GenerateQuestionsView)
+
+    def test_generate_questions_job_create_rejects_invalid_api_key(self):
+        response = self.client.post(
+            reverse("generate-questions-job-create"),
+            {"content": "Lesson", "count": 1},
+            format="json",
+            HTTP_X_API_KEY="wrong-key",
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    @patch("tutoring.views.QuestionGenerationJobService")
+    def test_generate_questions_job_create_returns_job_id(self, service_class):
+        job_id = uuid4()
+        service_class.return_value.create_job.return_value = SimpleNamespace(
+            id=job_id,
+            status="PENDING",
+        )
+
+        response = self.client.post(
+            reverse("generate-questions-job-create"),
+            {"content": "Lesson", "count": 3},
+            format="json",
+            HTTP_X_API_KEY="test-secret",
+        )
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(
+            response.data,
+            {"jobId": str(job_id), "status": "PENDING"},
+        )
+        service_class.return_value.create_job.assert_called_once_with(
+            content="Lesson",
+            count=3,
+        )
+
+    @patch("tutoring.views.QuestionGenerationJobService")
+    def test_generate_questions_job_status_returns_running(self, service_class):
+        job_id = uuid4()
+        service_class.return_value.get_job.return_value = SimpleNamespace(
+            id=job_id,
+            status="RUNNING",
+            result=None,
+            error="",
+        )
+
+        response = self.client.get(
+            reverse("generate-questions-job-status", kwargs={"job_id": job_id}),
+            HTTP_X_API_KEY="test-secret",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data,
+            {"jobId": str(job_id), "status": "RUNNING"},
+        )
+
+    @patch("tutoring.views.QuestionGenerationJobService")
+    def test_generate_questions_job_status_returns_done_questions(self, service_class):
+        job_id = uuid4()
+        generated_question = {
+            "text": "Question?",
+            "type": "SINGLE_CHOICE",
+            "answers": ["A", "B", "C", "D"],
+            "correctAnswers": ["A"],
+            "difficulty": 0.5,
+        }
+        service_class.return_value.get_job.return_value = SimpleNamespace(
+            id=job_id,
+            status="DONE",
+            result={"questions": [generated_question]},
+            error="",
+        )
+
+        response = self.client.get(
+            reverse("generate-questions-job-status", kwargs={"job_id": job_id}),
+            HTTP_X_API_KEY="test-secret",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data,
+            {
+                "jobId": str(job_id),
+                "status": "DONE",
+                "questions": [generated_question],
+            },
+        )
+
+    @patch("tutoring.views.QuestionGenerationJobService")
+    def test_generate_questions_job_status_returns_failed_error(self, service_class):
+        job_id = uuid4()
+        service_class.return_value.get_job.return_value = SimpleNamespace(
+            id=job_id,
+            status="FAILED",
+            result=None,
+            error="LLM failed.",
+        )
+
+        response = self.client.get(
+            reverse("generate-questions-job-status", kwargs={"job_id": job_id}),
+            HTTP_X_API_KEY="test-secret",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data,
+            {
+                "jobId": str(job_id),
+                "status": "FAILED",
+                "error": "LLM failed.",
+            },
+        )
+
+    @patch("tutoring.views.QuestionGenerationJobService")
+    def test_generate_questions_job_status_returns_404_when_missing(self, service_class):
+        job_id = uuid4()
+        service_class.return_value.get_job.return_value = None
+
+        response = self.client.get(
+            reverse("generate-questions-job-status", kwargs={"job_id": job_id}),
+            HTTP_X_API_KEY="test-secret",
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.data, {"error": "Jobul de generare nu există."})
 
     @patch("tutoring.views.LLMQuestionGenerationService")
     def test_generate_questions_returns_generated_questions(self, service_class):
