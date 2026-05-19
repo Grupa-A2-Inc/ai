@@ -20,6 +20,8 @@ from tutoring.serializers import AdaptiveFeedbackRequestSerializer
 from tutoring.serializers import (
     GenerateQuestionsRequestSerializer,
     GenerateQuestionsResponseSerializer,
+    GenerateQuestionsJobCreateResponseSerializer,
+    GenerateQuestionsJobStatusResponseSerializer,
     CustomerSupportChatRequestSerializer,
     CustomerSupportChatResponseSerializer,
 )
@@ -52,6 +54,9 @@ from tutoring.services.llm_question_generation_service import (
     LLMQuestionGenerationInvalidResponseError,
     LLMQuestionGenerationService,
     LLMQuestionGenerationUnavailableError,
+)
+from tutoring.services.question_generation_job_service import (
+    QuestionGenerationJobService,
 )
 
 logger = logging.getLogger(__name__)
@@ -711,6 +716,95 @@ class GenerateQuestionsView(APIView):
 
         response_serializer = GenerateQuestionsResponseSerializer(
             data={"questions": questions}
+        )
+        response_serializer.is_valid(raise_exception=True)
+
+        return Response(
+            response_serializer.validated_data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class GenerateQuestionsJobCreateView(APIView):
+    permission_classes = [HasValidApiKey]
+
+    @extend_schema(
+        operation_id="createQuestionGenerationJob",
+        tags=["LLM Generation"],
+        summary="Pornește un job asincron de generare întrebări",
+        parameters=[API_KEY_HEADER],
+        request=GenerateQuestionsRequestSerializer,
+        responses={
+            202: OpenApiResponse(
+                response=GenerateQuestionsJobCreateResponseSerializer,
+                description="Job creat cu succes.",
+            ),
+            400: OpenApiResponse(description="Request invalid."),
+            403: OpenApiResponse(description="X-API-Key lipsă sau invalid."),
+        },
+    )
+    def post(self, request):
+        serializer = GenerateQuestionsRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        job = QuestionGenerationJobService().create_job(
+            content=serializer.validated_data["content"],
+            count=serializer.validated_data["count"],
+        )
+
+        response_serializer = GenerateQuestionsJobCreateResponseSerializer(
+            data={
+                "jobId": str(job.id),
+                "status": job.status,
+            }
+        )
+        response_serializer.is_valid(raise_exception=True)
+
+        return Response(
+            response_serializer.validated_data,
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+
+class GenerateQuestionsJobStatusView(APIView):
+    permission_classes = [HasValidApiKey]
+
+    @extend_schema(
+        operation_id="getQuestionGenerationJob",
+        tags=["LLM Generation"],
+        summary="Returnează statusul unui job asincron de generare întrebări",
+        parameters=[API_KEY_HEADER],
+        responses={
+            200: OpenApiResponse(
+                response=GenerateQuestionsJobStatusResponseSerializer,
+                description="Status job returnat cu succes.",
+            ),
+            403: OpenApiResponse(description="X-API-Key lipsă sau invalid."),
+            404: OpenApiResponse(
+                response=ErrorResponseSerializer,
+                description="Jobul nu există.",
+            ),
+        },
+    )
+    def get(self, request, job_id):
+        job = QuestionGenerationJobService().get_job(job_id)
+        if job is None:
+            return Response(
+                {"error": "Jobul de generare nu există."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        response_payload = {
+            "jobId": str(job.id),
+            "status": job.status,
+        }
+        if job.status == "DONE":
+            response_payload["questions"] = (job.result or {}).get("questions", [])
+        if job.status == "FAILED":
+            response_payload["error"] = job.error
+
+        response_serializer = GenerateQuestionsJobStatusResponseSerializer(
+            data=response_payload
         )
         response_serializer.is_valid(raise_exception=True)
 

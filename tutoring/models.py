@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 
 
@@ -108,3 +110,28 @@ class StudentTopicLevel(models.Model):
 
     class Meta:
         unique_together = ("student","subject_id", "topic_id")
+
+
+class QuestionGenerationJobStatus(models.TextChoices):
+    PENDING = "PENDING", "Pending"
+    RUNNING = "RUNNING", "Running"
+    DONE = "DONE", "Done"
+    FAILED = "FAILED", "Failed"
+
+
+class QuestionGenerationJob(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    status = models.CharField(
+        max_length=20,
+        choices=QuestionGenerationJobStatus.choices,
+        default=QuestionGenerationJobStatus.PENDING,
+    )
+    content = models.TextField()
+    count = models.IntegerField(default=5)
+    result = models.JSONField(null=True, blank=True)
+    error = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
