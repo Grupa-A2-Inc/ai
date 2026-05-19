@@ -732,6 +732,11 @@ class GenerateQuestionsJobCreateView(APIView):
         operation_id="createQuestionGenerationJob",
         tags=["LLM Generation"],
         summary="Pornește un job asincron de generare întrebări",
+        description=(
+            "Primește conținutul lecției și numărul de întrebări, creează un job "
+            "în DB și pornește generarea în background. Endpointul răspunde imediat "
+            "cu `jobId`, iar statusul se verifică prin endpointul de polling."
+        ),
         parameters=[API_KEY_HEADER],
         request=GenerateQuestionsRequestSerializer,
         responses={
@@ -742,6 +747,24 @@ class GenerateQuestionsJobCreateView(APIView):
             400: OpenApiResponse(description="Request invalid."),
             403: OpenApiResponse(description="X-API-Key lipsă sau invalid."),
         },
+        examples=[
+            OpenApiExample(
+                "Cerere creare job generare",
+                value={
+                    "content": "Lecție despre PHP, baze de date și frameworkuri...",
+                    "count": 3,
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                "Răspuns job creat",
+                value={
+                    "jobId": "8f3c2a8e-7c3d-4f9d-9e1b-2b4a7b3d9a10",
+                    "status": "PENDING",
+                },
+                response_only=True,
+            ),
+        ],
     )
     def post(self, request):
         serializer = GenerateQuestionsRequestSerializer(data=request.data)
@@ -773,6 +796,11 @@ class GenerateQuestionsJobStatusView(APIView):
         operation_id="getQuestionGenerationJob",
         tags=["LLM Generation"],
         summary="Returnează statusul unui job asincron de generare întrebări",
+        description=(
+            "Se apelează periodic cu `jobId` primit la crearea jobului. "
+            "Când statusul este `DONE`, răspunsul include lista de întrebări. "
+            "Când statusul este `FAILED`, răspunsul include mesajul de eroare."
+        ),
         parameters=[API_KEY_HEADER],
         responses={
             200: OpenApiResponse(
@@ -785,6 +813,47 @@ class GenerateQuestionsJobStatusView(APIView):
                 description="Jobul nu există.",
             ),
         },
+        examples=[
+            OpenApiExample(
+                "Job în rulare",
+                value={
+                    "jobId": "8f3c2a8e-7c3d-4f9d-9e1b-2b4a7b3d9a10",
+                    "status": "RUNNING",
+                },
+                response_only=True,
+            ),
+            OpenApiExample(
+                "Job finalizat",
+                value={
+                    "jobId": "8f3c2a8e-7c3d-4f9d-9e1b-2b4a7b3d9a10",
+                    "status": "DONE",
+                    "questions": [
+                        {
+                            "text": "Ce tip de limbaj este PHP?",
+                            "type": "SINGLE_CHOICE",
+                            "answers": [
+                                "Limbaj de scripting",
+                                "Limbaj compilat",
+                                "Limbaj de markup",
+                                "Sistem de gestiune a bazelor de date",
+                            ],
+                            "correctAnswers": ["Limbaj de scripting"],
+                            "difficulty": 0.4,
+                        }
+                    ],
+                },
+                response_only=True,
+            ),
+            OpenApiExample(
+                "Job eșuat",
+                value={
+                    "jobId": "8f3c2a8e-7c3d-4f9d-9e1b-2b4a7b3d9a10",
+                    "status": "FAILED",
+                    "error": "LLM-ul a returnat un răspuns invalid.",
+                },
+                response_only=True,
+            ),
+        ],
     )
     def get(self, request, job_id):
         job = QuestionGenerationJobService().get_job(job_id)

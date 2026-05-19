@@ -71,6 +71,37 @@ class ViewCoverageTests(APITestCase):
         self.assertEqual(operation["operationId"], "customerSupportChat")
         self.assertEqual(operation["tags"], ["Chatbots"])
 
+    def test_openapi_schema_documents_async_generation_jobs(self):
+        response = self.client.get(
+            reverse("schema"),
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("/ai/api/v1/generate/jobs", response.data["paths"])
+        self.assertIn(
+            "/ai/api/v1/generate/jobs/{job_id}",
+            response.data["paths"],
+        )
+
+        create_operation = response.data["paths"][
+            "/ai/api/v1/generate/jobs"
+        ]["post"]
+        status_operation = response.data["paths"][
+            "/ai/api/v1/generate/jobs/{job_id}"
+        ]["get"]
+
+        self.assertEqual(
+            create_operation["operationId"],
+            "createQuestionGenerationJob",
+        )
+        self.assertEqual(
+            status_operation["operationId"],
+            "getQuestionGenerationJob",
+        )
+        self.assertEqual(create_operation["tags"], ["LLM Generation"])
+        self.assertEqual(status_operation["tags"], ["LLM Generation"])
+
     def test_adaptive_exercises_rejects_invalid_api_key_in_view(self):
         assert_invalid_api_key_is_rejected(AdaptiveExercisesView)
 
