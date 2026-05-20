@@ -35,14 +35,14 @@ class CurriculumCatalogServiceTests(TestCase):
             {
                 "subjects": [
                     {
-                        "subjectId": 11,
+                        "subjectId": 12,
                         "subjectName": "Limba engleză",
                     }
                 ],
                 "topics": [
                     {
                         "topicId": 2001,
-                        "subjectId": 11,
+                        "subjectId": 12,
                         "subjectName": "Limba engleză",
                         "grade": 9,
                         "topicName": "Structuri gramaticale de bază",
@@ -59,7 +59,31 @@ class CurriculumCatalogServiceTests(TestCase):
 
         self.assertEqual(
             [topic["subjectId"] for topic in catalog["topics"]],
-            [11],
+            [12],
+        )
+
+    def test_catalog_canonicalizes_imported_subject_aliases(self):
+        self._create_questions(subject_id=4, topic_id=1409, count=50)
+        self._create_questions(subject_id=4, topic_id=2009, count=50)
+
+        catalog = CurriculumCatalogService().list_catalog()
+
+        self.assertEqual(
+            catalog["subjects"],
+            [
+                {"subjectId": 5, "subjectName": "Fizică"},
+                {"subjectId": 12, "subjectName": "Limba engleză"},
+            ],
+        )
+        self.assertEqual(
+            [
+                (topic["subjectId"], topic["subjectName"], topic["topicName"])
+                for topic in catalog["topics"]
+            ],
+            [
+                (5, "Fizică", "Electricitate"),
+                (12, "Limba engleză", "Gramatică avansată și conectori"),
+            ],
         )
 
     def test_english_subject_topics_are_returned_in_romanian(self):

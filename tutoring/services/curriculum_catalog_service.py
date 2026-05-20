@@ -294,6 +294,31 @@ def _topic_grade(subject_id: int, topic_id: int) -> int:
     return 0
 
 
+def _catalog_topic_from_database_row(row):
+    topic_metadata = _metadata_for_pair(row["subject_id"], row["topic_id"])
+    if topic_metadata:
+        subject_id = topic_metadata["subjectId"]
+        subject = SUBJECT_BY_ID[subject_id]
+        return {
+            "topicId": topic_metadata["topicId"],
+            "subjectId": subject_id,
+            "subjectName": subject["subjectName"],
+            "grade": topic_metadata["grade"],
+            "topicName": topic_metadata["topicName"],
+        }
+
+    return {
+        "topicId": row["topic_id"],
+        "subjectId": row["subject_id"],
+        "subjectName": _topic_subject_name(
+            subject_id=row["subject_id"],
+            topic_id=row["topic_id"],
+        ),
+        "grade": _topic_grade(row["subject_id"], row["topic_id"]),
+        "topicName": _topic_name(row["subject_id"], row["topic_id"]),
+    }
+
+
 class CurriculumCatalogService:
     def list_catalog(self, grade=None, subject_id=None, topic_id=None):
         topics = self._topics_from_database()
@@ -324,19 +349,15 @@ class CurriculumCatalogService:
             .order_by("subject_id", "topic_id")
         )
 
-        return [
-            {
-                "topicId": row["topic_id"],
-                "subjectId": row["subject_id"],
-                "subjectName": _topic_subject_name(
-                    subject_id=row["subject_id"],
-                    topic_id=row["topic_id"],
-                ),
-                "grade": _topic_grade(row["subject_id"], row["topic_id"]),
-                "topicName": _topic_name(row["subject_id"], row["topic_id"]),
-            }
-            for row in rows
-        ]
+        topics_by_key = {}
+        for row in rows:
+            topic = _catalog_topic_from_database_row(row)
+            topics_by_key[(topic["subjectId"], topic["topicId"])] = topic
+
+        return sorted(
+            topics_by_key.values(),
+            key=lambda topic: (topic["subjectId"], topic["topicId"]),
+        )
 
     def find_database_metadata_gaps(self):
         rows = (
