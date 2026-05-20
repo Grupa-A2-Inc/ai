@@ -209,13 +209,6 @@ class CustomerSupportChatRequestSerializer(serializers.Serializer):
         default=dict,
     )
 
-    def validate_history(self, value):
-        if len(value) > 10:
-            raise serializers.ValidationError(
-                "History can contain at most 10 messages."
-            )
-        return value
-
     def validate_context(self, value):
         if not isinstance(value, dict):
             raise serializers.ValidationError("Context must be a JSON object.")
