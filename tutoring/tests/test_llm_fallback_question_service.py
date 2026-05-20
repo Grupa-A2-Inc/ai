@@ -126,6 +126,62 @@ class LLMFallbackQuestionServiceTests(TestCase):
         self.assertEqual(captured["default_difficulty"], 0.6)
         self.assertEqual(question.difficulty, 0.6)
 
+    def test_generate_and_save_many_requests_and_persists_multiple_questions(self):
+        captured = {}
+        generated_payloads = [
+            {
+                "text": "Cât este x dacă 2x = 6?",
+                "type": "SINGLE_CHOICE",
+                "answers": ["1", "2", "3", "4"],
+                "correctAnswers": ["3"],
+                "difficulty": 0.6,
+            },
+            {
+                "text": "Cât este x dacă x + 2 = 5?",
+                "type": "SINGLE_CHOICE",
+                "answers": ["1", "2", "3", "4"],
+                "correctAnswers": ["3"],
+                "difficulty": 0.6,
+            },
+        ]
+
+        class GenerationService:
+            def generate_from_prompt(
+                self,
+                prompt,
+                expected_count=None,
+                default_difficulty=None,
+            ):
+                captured["prompt"] = prompt
+                captured["expected_count"] = expected_count
+                return generated_payloads
+
+        context = SimpleNamespace(
+            target_difficulty=0.6,
+            mastery_score=0.5,
+            ml_features={"attempt_count_on_topic": 3},
+            seen_question_ids=set(),
+            student_context=SimpleNamespace(
+                candidate_questions=[],
+                recent_history=[],
+                history=[],
+            ),
+        )
+
+        questions = LLMFallbackQuestionService(
+            generation_service=GenerationService()
+        ).generate_and_save_many(
+            subject_id=2,
+            topic_id=1102,
+            recommendation_context=context,
+            count=2,
+        )
+
+        self.assertEqual(len(questions), 2)
+        self.assertEqual(captured["expected_count"], 2)
+        self.assertIn("Generate exactly 2 question(s)", captured["prompt"])
+        self.assertEqual(Question.objects.count(), 2)
+
     def test_generate_and_save_returns_none_when_prompt_context_is_invalid(self):
         service = LLMFallbackQuestionService()
 

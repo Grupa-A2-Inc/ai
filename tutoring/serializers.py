@@ -20,6 +20,28 @@ class AdaptiveExerciseSerializer(serializers.Serializer):
 class AdaptiveExercisesResponseSerializer(serializers.Serializer):
     exercises = AdaptiveExerciseSerializer(many=True)
 
+
+class AdaptiveExercisesJobCreateResponseSerializer(serializers.Serializer):
+    jobId = serializers.CharField()
+    status = serializers.ChoiceField(
+        choices=["PENDING", "RUNNING", "DONE", "FAILED"]
+    )
+
+
+class AdaptiveExercisesJobStatusResponseSerializer(serializers.Serializer):
+    jobId = serializers.CharField()
+    status = serializers.ChoiceField(
+        choices=["PENDING", "RUNNING", "DONE", "FAILED"]
+    )
+    exercises = AdaptiveExerciseSerializer(
+        many=True,
+        required=False,
+    )
+    error = serializers.CharField(
+        required=False,
+        allow_blank=True,
+    )
+
 class AdaptiveExercisesRequestSerializer(serializers.Serializer):
     studentId = serializers.CharField()
     subjectId = serializers.IntegerField(min_value=1)

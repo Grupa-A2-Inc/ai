@@ -21,6 +21,8 @@ from tutoring.services.llm_question_generation_service import (
 )
 from tutoring.views import (
     AdaptiveExercisesView,
+    AdaptiveExercisesJobCreateView,
+    AdaptiveExercisesJobStatusView,
     AdaptiveFeedbackView,
     CurriculumCatalogView,
     CustomerSupportChatView,
@@ -102,8 +104,149 @@ class ViewCoverageTests(APITestCase):
         self.assertEqual(create_operation["tags"], ["LLM Generation"])
         self.assertEqual(status_operation["tags"], ["LLM Generation"])
 
+    def test_openapi_schema_documents_async_adaptive_exercise_jobs(self):
+        response = self.client.get(
+            reverse("schema"),
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("/ai/api/v1/adaptive/exercises/jobs", response.data["paths"])
+        self.assertIn(
+            "/ai/api/v1/adaptive/exercises/jobs/{job_id}",
+            response.data["paths"],
+        )
+
+        create_operation = response.data["paths"][
+            "/ai/api/v1/adaptive/exercises/jobs"
+        ]["post"]
+        status_operation = response.data["paths"][
+            "/ai/api/v1/adaptive/exercises/jobs/{job_id}"
+        ]["get"]
+
+        self.assertEqual(
+            create_operation["operationId"],
+            "createAdaptiveExercisesJob",
+        )
+        self.assertEqual(
+            status_operation["operationId"],
+            "getAdaptiveExercisesJob",
+        )
+        self.assertEqual(create_operation["tags"], ["Adaptive Learning"])
+        self.assertEqual(status_operation["tags"], ["Adaptive Learning"])
+
     def test_adaptive_exercises_rejects_invalid_api_key_in_view(self):
         assert_invalid_api_key_is_rejected(AdaptiveExercisesView)
+
+    def test_adaptive_exercises_job_create_rejects_invalid_api_key(self):
+        response = self.client.post(
+            reverse("adaptive-exercises-job-create"),
+            {
+                "studentId": "student-1",
+                "subjectId": 1,
+                "topicId": 2,
+                "count": 1,
+            },
+            format="json",
+            HTTP_X_API_KEY="wrong-key",
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    @patch("tutoring.views.AdaptiveExerciseGenerationJobService")
+    def test_adaptive_exercises_job_create_returns_job_id(self, service_class):
+        job_id = uuid4()
+        service_class.return_value.create_job.return_value = SimpleNamespace(
+            id=job_id,
+            status="PENDING",
+        )
+
+        response = self.client.post(
+            reverse("adaptive-exercises-job-create"),
+            {
+                "studentId": "student-1",
+                "subjectId": 1,
+                "topicId": 2,
+                "count": 12,
+            },
+            format="json",
+            HTTP_X_API_KEY="test-secret",
+        )
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.data, {"jobId": str(job_id), "status": "PENDING"})
+        service_class.return_value.create_job.assert_called_once_with(
+            student_id="student-1",
+            subject_id=1,
+            topic_id=2,
+            count=12,
+        )
+
+    @patch("tutoring.views.AdaptiveExerciseGenerationJobService")
+    def test_adaptive_exercises_job_status_returns_done_exercises(self, service_class):
+        job_id = uuid4()
+        service_class.return_value.get_job.return_value = SimpleNamespace(
+            id=job_id,
+            status="DONE",
+            result={"exercises": [VALID_EXERCISE]},
+            error="",
+        )
+
+        response = self.client.get(
+            reverse("adaptive-exercises-job-status", kwargs={"job_id": job_id}),
+            HTTP_X_API_KEY="test-secret",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data,
+            {
+                "jobId": str(job_id),
+                "status": "DONE",
+                "exercises": [VALID_EXERCISE],
+            },
+        )
+
+    @patch("tutoring.views.AdaptiveExerciseGenerationJobService")
+    def test_adaptive_exercises_job_status_returns_failed_error(self, service_class):
+        job_id = uuid4()
+        service_class.return_value.get_job.return_value = SimpleNamespace(
+            id=job_id,
+            status="FAILED",
+            result=None,
+            error="Studentul nu există.",
+        )
+
+        response = self.client.get(
+            reverse("adaptive-exercises-job-status", kwargs={"job_id": job_id}),
+            HTTP_X_API_KEY="test-secret",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data,
+            {
+                "jobId": str(job_id),
+                "status": "FAILED",
+                "error": "Studentul nu există.",
+            },
+        )
+
+    @patch("tutoring.views.AdaptiveExerciseGenerationJobService")
+    def test_adaptive_exercises_job_status_returns_404_when_missing(self, service_class):
+        job_id = uuid4()
+        service_class.return_value.get_job.return_value = None
+
+        response = self.client.get(
+            reverse("adaptive-exercises-job-status", kwargs={"job_id": job_id}),
+            HTTP_X_API_KEY="test-secret",
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(
+            response.data,
+            {"error": "Jobul de exerciții adaptive nu există."},
+        )
 
     def test_customer_support_chat_rejects_invalid_api_key_in_view(self):
         assert_invalid_api_key_is_rejected(CustomerSupportChatView)

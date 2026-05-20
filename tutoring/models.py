@@ -135,3 +135,30 @@ class QuestionGenerationJob(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+
+
+class AdaptiveExerciseGenerationJobStatus(models.TextChoices):
+    PENDING = "PENDING", "Pending"
+    RUNNING = "RUNNING", "Running"
+    DONE = "DONE", "Done"
+    FAILED = "FAILED", "Failed"
+
+
+class AdaptiveExerciseGenerationJob(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    status = models.CharField(
+        max_length=20,
+        choices=AdaptiveExerciseGenerationJobStatus.choices,
+        default=AdaptiveExerciseGenerationJobStatus.PENDING,
+    )
+    student_id = models.CharField(max_length=100)
+    subject_id = models.IntegerField()
+    topic_id = models.IntegerField()
+    count = models.IntegerField(default=5)
+    result = models.JSONField(null=True, blank=True)
+    error = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
