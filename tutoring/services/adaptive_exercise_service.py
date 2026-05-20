@@ -43,15 +43,22 @@ class AdaptiveExerciseService:
             )
 
             if recommendation is None:
-                question = self._generate_fallback_question(
+                remaining_count = count - len(exercises)
+                fallback_questions = self._generate_fallback_questions(
                     student_id=student_id,
                     subject_id=subject_id,
                     topic_id=topic_id,
                     excluded_question_ids=generated_question_ids,
+                    count=remaining_count,
                 )
-                if question is None:
+                if not fallback_questions:
                     break
-                generated_question_ids.add(question.id)
+                for question in fallback_questions:
+                    if len(exercises) >= count:
+                        break
+                    generated_question_ids.add(question.id)
+                    exercises.append(self._serialize_question(question))
+                break
             else:
                 if recommendation.question_id in generated_question_ids:
                     break
@@ -59,32 +66,23 @@ class AdaptiveExerciseService:
                 generated_question_ids.add(recommendation.question_id)
                 question = Question.objects.get(id=recommendation.question_id)
 
-            exercise_id = self._build_exercise_id(question)
-
-            question.ml_exercise_id = exercise_id
-            question.save(update_fields=["ml_exercise_id"])
-
-            exercises.append(
-                self.serializer.serialize(
-                    question=question,
-                    exercise_id=exercise_id,
-                )
-            )
+                exercises.append(self._serialize_question(question))
 
         return exercises
 
-    def _generate_fallback_question(
+    def _generate_fallback_questions(
         self,
         student_id: str,
         subject_id: int,
         topic_id: int,
         excluded_question_ids,
+        count: int,
     ):
         if not getattr(settings, "LLM_FALLBACK_ENABLED", True):
-            return None
+            return []
 
         if not hasattr(self.engine, "build_recommendation_context"):
-            return None
+            return []
 
         recommendation_context = self.engine.build_recommendation_context(
             user_id=student_id,
@@ -93,10 +91,11 @@ class AdaptiveExerciseService:
             excluded_question_ids=excluded_question_ids,
         )
 
-        return self.fallback_service.generate_and_save(
+        return self.fallback_service.generate_and_save_many(
             subject_id=subject_id,
             topic_id=topic_id,
             recommendation_context=recommendation_context,
+            count=count,
         )
 
     def _validate_student_exists(self, student_id: str) -> None:
@@ -110,3 +109,14 @@ class AdaptiveExerciseService:
 
     def _build_exercise_id(self, question: Question) -> str:
         return f"ai-{question.id}"
+
+    def _serialize_question(self, question: Question) -> dict:
+        exercise_id = self._build_exercise_id(question)
+
+        question.ml_exercise_id = exercise_id
+        question.save(update_fields=["ml_exercise_id"])
+
+        return self.serializer.serialize(
+            question=question,
+            exercise_id=exercise_id,
+        )

@@ -36,6 +36,8 @@ from tutoring.serializers import StudentSyncRequestSerializer
 from tutoring.serializers import (
     AdaptiveExercisesRequestSerializer,
     AdaptiveExercisesResponseSerializer,
+    AdaptiveExercisesJobCreateResponseSerializer,
+    AdaptiveExercisesJobStatusResponseSerializer,
     CurriculumCatalogQuerySerializer,
     CurriculumCatalogResponseSerializer,
 )
@@ -43,6 +45,9 @@ from tutoring.security.api_key_permission import HasValidApiKey
 from tutoring.services.adaptive_exercise_service import (
     AdaptiveExerciseService,
     StudentNotFoundError as AdaptiveExerciseStudentNotFoundError,
+)
+from tutoring.services.adaptive_exercise_job_service import (
+    AdaptiveExerciseGenerationJobService,
 )
 from tutoring.services.curriculum_catalog_service import CurriculumCatalogService
 from tutoring.services.customer_support_chat_service import (
@@ -200,6 +205,163 @@ class AdaptiveExercisesView(APIView):
         }
 
         response_serializer = AdaptiveExercisesResponseSerializer(
+            data=response_payload
+        )
+        response_serializer.is_valid(raise_exception=True)
+
+        return Response(
+            response_serializer.validated_data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdaptiveExercisesJobCreateView(APIView):
+    permission_classes = [HasValidApiKey]
+
+    @extend_schema(
+        operation_id="createAdaptiveExercisesJob",
+        tags=["Adaptive Learning"],
+        summary="Pornește un job asincron pentru exerciții adaptive",
+        description=(
+            "Rulează întreg flow-ul de exerciții adaptive în background: selecție "
+            "ML/DB și fallback LLM batch pentru întrebările rămase, dacă este nevoie. "
+            "Endpointul răspunde imediat cu `jobId`; rezultatul complet se ia prin polling."
+        ),
+        parameters=[API_KEY_HEADER],
+        request=AdaptiveExercisesRequestSerializer,
+        responses={
+            202: OpenApiResponse(
+                response=AdaptiveExercisesJobCreateResponseSerializer,
+                description="Job creat cu succes.",
+            ),
+            400: OpenApiResponse(description="Request invalid."),
+            403: OpenApiResponse(description="X-API-Key lipsă sau invalid."),
+        },
+        examples=[
+            OpenApiExample(
+                "Cerere creare job exerciții adaptive",
+                value={
+                    "studentId": "student-uuid-1",
+                    "subjectId": 2,
+                    "topicId": 1102,
+                    "count": 12,
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                "Răspuns job creat",
+                value={
+                    "jobId": "8f3c2a8e-7c3d-4f9d-9e1b-2b4a7b3d9a10",
+                    "status": "PENDING",
+                },
+                response_only=True,
+            ),
+        ],
+    )
+    def post(self, request):
+        serializer = AdaptiveExercisesRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        job = AdaptiveExerciseGenerationJobService().create_job(
+            student_id=serializer.validated_data["studentId"],
+            subject_id=serializer.validated_data["subjectId"],
+            topic_id=serializer.validated_data["topicId"],
+            count=serializer.validated_data["count"],
+        )
+
+        response_serializer = AdaptiveExercisesJobCreateResponseSerializer(
+            data={
+                "jobId": str(job.id),
+                "status": job.status,
+            }
+        )
+        response_serializer.is_valid(raise_exception=True)
+
+        return Response(
+            response_serializer.validated_data,
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+
+class AdaptiveExercisesJobStatusView(APIView):
+    permission_classes = [HasValidApiKey]
+
+    @extend_schema(
+        operation_id="getAdaptiveExercisesJob",
+        tags=["Adaptive Learning"],
+        summary="Returnează statusul unui job asincron de exerciții adaptive",
+        description=(
+            "Se apelează periodic cu `jobId`. Când statusul este `DONE`, răspunsul "
+            "include toate exercițiile, indiferent dacă au venit din ML/DB sau fallback LLM."
+        ),
+        parameters=[API_KEY_HEADER],
+        responses={
+            200: OpenApiResponse(
+                response=AdaptiveExercisesJobStatusResponseSerializer,
+                description="Status job returnat cu succes.",
+            ),
+            403: OpenApiResponse(description="X-API-Key lipsă sau invalid."),
+            404: OpenApiResponse(
+                response=ErrorResponseSerializer,
+                description="Jobul nu există.",
+            ),
+        },
+        examples=[
+            OpenApiExample(
+                "Job în rulare",
+                value={
+                    "jobId": "8f3c2a8e-7c3d-4f9d-9e1b-2b4a7b3d9a10",
+                    "status": "RUNNING",
+                },
+                response_only=True,
+            ),
+            OpenApiExample(
+                "Job finalizat",
+                value={
+                    "jobId": "8f3c2a8e-7c3d-4f9d-9e1b-2b4a7b3d9a10",
+                    "status": "DONE",
+                    "exercises": [
+                        {
+                            "exerciseId": "ai-42",
+                            "text": "Rezolvă ecuația 2x + 4 = 10.",
+                            "type": "SINGLE_CHOICE",
+                            "answers": ["x = 2", "x = 3", "x = 4", "x = 5"],
+                            "correctAnswers": ["x = 3"],
+                            "difficulty": 0.5,
+                        }
+                    ],
+                },
+                response_only=True,
+            ),
+            OpenApiExample(
+                "Job eșuat",
+                value={
+                    "jobId": "8f3c2a8e-7c3d-4f9d-9e1b-2b4a7b3d9a10",
+                    "status": "FAILED",
+                    "error": "Studentul nu există.",
+                },
+                response_only=True,
+            ),
+        ],
+    )
+    def get(self, request, job_id):
+        job = AdaptiveExerciseGenerationJobService().get_job(job_id)
+        if job is None:
+            return Response(
+                {"error": "Jobul de exerciții adaptive nu există."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        response_payload = {
+            "jobId": str(job.id),
+            "status": job.status,
+        }
+        if job.status == "DONE":
+            response_payload["exercises"] = (job.result or {}).get("exercises", [])
+        if job.status == "FAILED":
+            response_payload["error"] = job.error
+
+        response_serializer = AdaptiveExercisesJobStatusResponseSerializer(
             data=response_payload
         )
         response_serializer.is_valid(raise_exception=True)

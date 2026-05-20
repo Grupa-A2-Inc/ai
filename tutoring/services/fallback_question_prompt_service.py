@@ -97,6 +97,7 @@ class FallbackQuestionPromptService:
         student_features: dict | None = None,
         example_questions=None,
         avoid_question_texts=None,
+        count: int = 1,
     ) -> str:
         subject = self._resolve_subject(subject_id)
         topic = self._resolve_topic(topic_id)
@@ -129,7 +130,7 @@ class FallbackQuestionPromptService:
 
         return (
             "You are an educational question generation assistant.\n\n"
-            "Generate exactly ONE question for an adaptive learning platform.\n"
+            f"Generate exactly {count} question(s) for an adaptive learning platform.\n"
             "Write the question and answers in Romanian, except when the subject is English.\n\n"
             "Context:\n"
             f"{json.dumps(context, ensure_ascii=False, indent=2)}\n\n"
@@ -150,7 +151,9 @@ class FallbackQuestionPromptService:
             "  ]\n"
             "}\n\n"
             "Rules:\n"
-            "- Generate exactly one question.\n"
+            f"- Generate exactly {count} question(s).\n"
+            "- Each generated question must be distinct and must test a different angle of the topic.\n"
+            "- Do not generate duplicate or semantically equivalent questions in the same response.\n"
             "- The question must match the subject, grade, and topic.\n"
             "- The question difficulty must be close to targetDifficulty and inside allowedDifficultyRange.\n"
             "- Use the difficulty calibration to decide the cognitive demand of the question.\n"

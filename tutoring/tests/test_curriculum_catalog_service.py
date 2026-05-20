@@ -45,7 +45,7 @@ class CurriculumCatalogServiceTests(TestCase):
                         "subjectId": 11,
                         "subjectName": "Limba engleză",
                         "grade": 9,
-                        "topicName": "Basic grammar structures",
+                        "topicName": "Structuri gramaticale de bază",
                     }
                 ],
             },
@@ -60,6 +60,19 @@ class CurriculumCatalogServiceTests(TestCase):
         self.assertEqual(
             [topic["subjectId"] for topic in catalog["topics"]],
             [11],
+        )
+
+    def test_english_subject_topics_are_returned_in_romanian(self):
+        catalog = CurriculumCatalogService().list_catalog(subject_id=12, grade=9)
+
+        self.assertEqual(
+            [topic["topicName"] for topic in catalog["topics"]],
+            [
+                "Structuri gramaticale de bază",
+                "Vocabular cotidian",
+                "Verbe frazale",
+                "Cuvinte frecvent confundate",
+            ],
         )
 
     def test_metadata_audit_accepts_verified_database_aliases(self):
